@@ -120,11 +120,26 @@ function KPICard({ label, value, sub, icon: Icon, loading, variant = "default" }
 }
 
 export default function CitizenDashboard() {
-  const [zone, setZone] = useState("Colombo 05")
+  const [zone, setZone] = useState(() => {
+    // Pre-fill from the citizen's registered zone stored on login/register
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("citizen_zone") || "Colombo 05"
+    }
+    return "Colombo 05"
+  })
+  const [citizenName, setCitizenName] = useState("")
   const [reports, setReports] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [ecoBalance, setEcoBalance] = useState("0")
   const [walletAddress, setWalletAddress] = useState(null)
+
+  // Load citizen name from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const name = localStorage.getItem("citizen_name")
+      if (name) setCitizenName(name)
+    }
+  }, [])
 
   // Fetch wallet balance silently
   useEffect(() => {
@@ -150,11 +165,21 @@ export default function CitizenDashboard() {
   useEffect(() => {
     const fetchReports = async () => {
       setIsLoading(true)
+      
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setReports([])
+        setIsLoading(false)
+        return
+      }
+
       const { data } = await supabase
         .from("CitizenReports")
         .select("*")
+        .eq("user_id", user.id)
         .order("id", { ascending: false })
         .limit(6)
+        
       setReports(data ?? [])
       setIsLoading(false)
     }
@@ -198,7 +223,9 @@ export default function CitizenDashboard() {
       {/* ── Page heading ── */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            {citizenName ? `Welcome, ${citizenName.split(" ")[0]}` : "Dashboard"}
+          </h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Overview of your zone activity and recent reports.
           </p>
@@ -215,9 +242,9 @@ export default function CitizenDashboard() {
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KPICard
-          label="Total Reports"
+          label="Your Reports"
           value={totalReports}
-          sub="Submitted this session"
+          sub="Submitted by you"
           icon={ClipboardList}
           variant="blue"
           loading={isLoading}
@@ -225,7 +252,7 @@ export default function CitizenDashboard() {
         <KPICard
           label="Resolved Issues"
           value={resolvedCount}
-          sub={`${totalReports > 0 ? Math.round((resolvedCount / totalReports) * 100) : 0}% resolution rate`}
+          sub={`${totalReports > 0 ? Math.round((resolvedCount / totalReports) * 100) : 0}% of your reports resolved`}
           icon={CheckCircle2}
           variant="green"
           loading={isLoading}
@@ -344,7 +371,7 @@ export default function CitizenDashboard() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-blue-500" />
-            <h2 className="text-base font-semibold text-slate-800">Recent Reports</h2>
+            <h2 className="text-base font-semibold text-slate-800">Your Recent Reports</h2>
           </div>
           <Link
             href="/citizen/report"

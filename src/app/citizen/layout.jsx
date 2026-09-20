@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { getContractSigner, getEcoBalance } from "@/lib/web3"
@@ -17,32 +17,80 @@ import {
   ChevronRight,
   Menu,
   Truck,
+  UserCircle,
+  LogOut,
+  Loader2,
 } from "lucide-react"
 
 const NAV_LINKS = [
-  { href: "/citizen", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/citizen/schedule", label: "Schedule", icon: CalendarDays },
-  { href: "/citizen/report", label: "Report Issue", icon: ClipboardList },
-  { href: "/citizen/track", label: "Track Driver", icon: Truck },
-  { href: "/rewards", label: "Rewards", icon: Coins },
-  { href: "/citizen/guide", label: "Waste Guide", icon: BookOpen },
-  { href: "/citizen/zones", label: "Zones", icon: MapPin },
+  { href: "/citizen",          label: "Dashboard",    icon: LayoutDashboard, exact: true },
+  { href: "/citizen/schedule", label: "Schedule",     icon: CalendarDays },
+  { href: "/citizen/report",   label: "Report Issue", icon: ClipboardList },
+  { href: "/citizen/track",    label: "Track Driver", icon: Truck },
+  { href: "/rewards",          label: "Rewards",      icon: Coins },
+  { href: "/citizen/guide",    label: "Waste Guide",  icon: BookOpen },
+  { href: "/citizen/zones",    label: "Zones",        icon: MapPin },
+  { href: "/citizen/profile",  label: "My Profile",   icon: UserCircle },
 ]
 
 export default function CitizenLayout({ children }) {
-  const pathname = usePathname()
+  const pathname  = usePathname()
+  const router    = useRouter()
+
+  // Auth state
+  const [authChecked, setAuthChecked]   = useState(false)
+  const [citizenName, setCitizenName]   = useState("")
+  const [citizenEmail, setCitizenEmail] = useState("")
+  const [signingOut, setSigningOut]     = useState(false)
 
   // Supabase realtime connection indicator
   const [connectionStatus, setConnectionStatus] = useState("connecting")
 
   // Wallet state
-  const [userAddress, setUserAddress] = useState(null)
-  const [ecoBalance, setEcoBalance] = useState("0")
+  const [userAddress, setUserAddress]   = useState(null)
+  const [ecoBalance, setEcoBalance]     = useState("0")
   const [walletLoading, setWalletLoading] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen]   = useState(false)
+
+  // ── Auth guard ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        router.replace("/login/citizen")
+        return
+      }
+
+      // Load citizen profile (limit(1) — handles duplicate rows gracefully)
+      const { data: rows } = await supabase
+        .from("profiles")
+        .select("full_name, zone, email")
+        .eq("email", session.user.email)
+        .eq("role", "citizen")
+        .limit(1)
+
+      const profile = rows?.[0] ?? null
+
+      // If profile found, use its data; fall back to auth email
+      setCitizenName(profile?.full_name || session.user.user_metadata?.full_name || "Citizen")
+      setCitizenEmail(profile?.email || session.user.email)
+
+      // Sync zone to localStorage for dashboard use
+      if (typeof window !== "undefined") {
+        if (profile?.zone) localStorage.setItem("citizen_zone", profile.zone)
+        if (profile?.full_name) localStorage.setItem("citizen_name", profile.full_name)
+      }
+
+      setAuthChecked(true)
+    }
+
+    checkAuth()
+  }, [router])
 
   // Monitor Supabase realtime connection
   useEffect(() => {
+    if (!authChecked) return
     const channel = supabase
       .channel("citizen-layout-heartbeat")
       .on("system", {}, (payload) => {
@@ -52,18 +100,16 @@ export default function CitizenLayout({ children }) {
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") setConnectionStatus("connected")
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
-          setConnectionStatus("error")
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setConnectionStatus("error")
         else setConnectionStatus("connecting")
       })
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+    return () => { supabase.removeChannel(channel) }
+  }, [authChecked])
 
   // Auto-connect wallet if previously connected
   useEffect(() => {
+    if (!authChecked) return
     const tryAutoConnect = async () => {
       if (typeof window === "undefined" || !window.ethereum) return
       try {
@@ -76,11 +122,11 @@ export default function CitizenLayout({ children }) {
           setEcoBalance(balance)
         }
       } catch {
-        // Silent fail — user hasn't connected yet
+        // Silent fail
       }
     }
     tryAutoConnect()
-  }, [])
+  }, [authChecked])
 
   const connectWallet = async () => {
     setWalletLoading(true)
@@ -98,18 +144,45 @@ export default function CitizenLayout({ children }) {
     }
   }
 
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    await supabase.auth.signOut()
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("citizen_zone")
+      localStorage.removeItem("citizen_name")
+    }
+    router.replace("/login/citizen")
+  }
+
   const isActive = (link) => {
     if (link.exact) return pathname === link.href
     return pathname.startsWith(link.href)
   }
 
   const connectionIndicator = {
-    connected: { color: "bg-emerald-400", label: "Live", pulse: true },
-    connecting: { color: "bg-amber-400", label: "Connecting", pulse: true },
-    error: { color: "bg-red-500", label: "Offline", pulse: false },
+    connected:  { color: "bg-emerald-400", label: "Live",       pulse: true },
+    connecting: { color: "bg-amber-400",   label: "Connecting", pulse: true },
+    error:      { color: "bg-red-500",     label: "Offline",    pulse: false },
   }[connectionStatus]
 
   const currentPageLabel = NAV_LINKS.find((l) => isActive(l))?.label ?? "Dashboard"
+
+  // ── Loading screen while auth is being verified ────────────────────────────
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 rounded-lg bg-[#00A878] flex items-center justify-center shadow-md mx-auto">
+            <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
+          </div>
+          <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Verifying your session…
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
@@ -130,14 +203,16 @@ export default function CitizenLayout({ children }) {
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        {/* Brand */}
+        {/* Brand + citizen name */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/50">
           <div className="w-8 h-8 rounded-lg bg-[#00A878] flex items-center justify-center shadow-md shadow-emerald-900/30 shrink-0">
             <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
           </div>
           <div className="min-w-0">
             <p className="font-bold text-white text-sm leading-none tracking-tight">EcoRoute</p>
-            <p className="text-[11px] text-slate-400 mt-0.5 font-medium">Citizen Portal</p>
+            <p className="text-[11px] text-slate-400 mt-0.5 font-medium truncate max-w-[130px]" title={citizenName}>
+              {citizenName || "Citizen Portal"}
+            </p>
           </div>
         </div>
 
@@ -158,14 +233,12 @@ export default function CitizenLayout({ children }) {
                     className={`
                       flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
                       transition-all duration-150 group relative
-                      ${
-                        active
-                          ? "bg-[#00A878]/15 text-[#00A878]"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                      ${active
+                        ? "bg-[#00A878]/15 text-[#00A878]"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
                       }
                     `}
                   >
-                    {/* Active left bar */}
                     {active && (
                       <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-[#00A878] rounded-r-full" />
                     )}
@@ -186,9 +259,30 @@ export default function CitizenLayout({ children }) {
           </ul>
         </nav>
 
-        {/* Sidebar footer — connection status */}
-        <div className="px-4 py-3.5 border-t border-slate-700/50">
-          <div className="flex items-center gap-2">
+        {/* Sidebar footer — sign out + connection */}
+        <div className="px-3 pb-4 pt-2 border-t border-slate-700/50 space-y-2">
+          {/* Email */}
+          <div className="px-3 py-1">
+            <p className="text-[11px] text-slate-500 font-medium truncate" title={citizenEmail}>
+              {citizenEmail}
+            </p>
+          </div>
+
+          {/* Sign out */}
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium text-slate-400 hover:bg-red-900/20 hover:text-red-400 transition-all duration-150 disabled:opacity-50"
+          >
+            {signingOut
+              ? <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              : <LogOut className="w-4 h-4 shrink-0" />
+            }
+            {signingOut ? "Signing out…" : "Sign Out"}
+          </button>
+
+          {/* Connection status */}
+          <div className="flex items-center gap-2 px-3">
             <span
               className={`w-1.5 h-1.5 rounded-full ${connectionIndicator.color} ${
                 connectionIndicator.pulse ? "animate-pulse" : ""

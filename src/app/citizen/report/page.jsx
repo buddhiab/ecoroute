@@ -100,9 +100,13 @@ export default function ReportIssuePage() {
     setIsSubmitting(true)
     setStatus("⏳ Saving your report to the database…")
 
-    // 1. Insert into Supabase
+    // 1. Fetch current user to link the report
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // 2. Insert into Supabase with user_id
     const { error: dbError } = await supabase.from("CitizenReports").insert([
       {
+        user_id: user?.id ?? null,
         zone,
         issue_type: issueType,
         description,
