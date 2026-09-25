@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { AlertCircle, CheckCircle2, Trash2, X, AlertTriangle } from "lucide-react";
+import { AlertCircle, CheckCircle2, Trash2, X, AlertTriangle, MapPin, Truck, XCircle, Loader2, Pencil } from "lucide-react";
 
 const COLOMBO_ZONES = [
   "Colombo 01", "Colombo 02", "Colombo 03", "Colombo 04", "Colombo 05",
@@ -32,6 +32,8 @@ export default function FleetMonitor() {
   // Notifications & Confirmations
   const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
   const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, actionText, onConfirm }
+  const [dispatching, setDispatching] = useState(null); // driver id being dispatched
+  const [activeRoutes, setActiveRoutes] = useState({}); // { driverZone: routeId }
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -49,6 +51,17 @@ export default function FleetMonitor() {
       if (!driversResponse.error) setDrivers(driversResponse.data || []);
       if (!vehiclesResponse.error) setInventory(vehiclesResponse.data.map(v => v.registration_number) || []);
       if (!pendingResponse.error) setPendingDrivers(pendingResponse.data || []);
+
+      // Also load active routes so we know which drivers already have one
+      const { data: routesData } = await supabase
+        .from("Routes")
+        .select("id, zone, status")
+        .eq("status", "In Progress");
+      if (routesData) {
+        const map = {};
+        routesData.forEach(r => { map[r.zone] = r.id; });
+        setActiveRoutes(map);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -125,6 +138,58 @@ export default function FleetMonitor() {
         }
       }
     });
+  };
+
+  // ── Dispatch Route ──
+  const handleDispatchRoute = async (driver) => {
+    setDispatching(driver.id);
+    try {
+      // Check if this zone already has an active route
+      if (activeRoutes[driver.assigned_zone]) {
+        showToast(`Zone ${driver.assigned_zone} already has an active route.`, "error");
+        return;
+      }
+      const { data, error } = await supabase
+        .from("Routes")
+        .insert([{
+          zone: driver.assigned_zone,
+          driver_name: driver.full_name,
+          status: "In Progress",
+        }])
+        .select()
+        .single();
+      if (error) throw error;
+      setActiveRoutes(prev => ({ ...prev, [driver.assigned_zone]: data.id }));
+      showToast(`Route dispatched to ${driver.full_name} (${driver.assigned_zone}).`, "success");
+    } catch (err) {
+      showToast(err.message || "Failed to dispatch route.", "error");
+    } finally {
+      setDispatching(null);
+    }
+  };
+
+  // ── Recall (complete) Route ──
+  const handleRecallRoute = async (driver) => {
+    const routeId = activeRoutes[driver.assigned_zone];
+    if (!routeId) return;
+    setDispatching(driver.id);
+    try {
+      const { error } = await supabase
+        .from("Routes")
+        .update({ status: "Completed" })
+        .eq("id", routeId);
+      if (error) throw error;
+      setActiveRoutes(prev => {
+        const next = { ...prev };
+        delete next[driver.assigned_zone];
+        return next;
+      });
+      showToast(`Route recalled for ${driver.full_name}.`, "success");
+    } catch (err) {
+      showToast(err.message || "Failed to recall route.", "error");
+    } finally {
+      setDispatching(null);
+    }
   };
 
   // ── Add Vehicle ──
@@ -398,6 +463,7 @@ export default function FleetMonitor() {
               <th className="p-5 font-medium">Driver Name</th>
               <th className="p-5 font-medium">Assigned Zone</th>
               <th className="p-5 font-medium">Vehicle Reg</th>
+              <th className="p-5 font-medium">Route Status</th>
               <th className="p-5 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -424,25 +490,82 @@ export default function FleetMonitor() {
                       {driver.vehicle_number || "Unassigned"}
                     </span>
                   </td>
-                  <td className="p-5 text-right space-x-4">
-                    <button
-                      onClick={() => openModal(driver, "zone")}
-                      className="text-sm font-medium text-emerald-600 hover:text-emerald-800"
-                    >
-                      Edit Zone
-                    </button>
-                    <button
-                      onClick={() => openModal(driver, "vehicle")}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      Edit Vehicle
-                    </button>
-                    <button
-                      onClick={() => handleDeleteDriver(driver.id, driver.full_name)}
-                      className="text-sm font-medium text-red-600 hover:text-red-800"
-                    >
-                      Delete
-                    </button>
+                  <td className="p-5">
+                    {activeRoutes[driver.assigned_zone] ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                        In Progress
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-50 text-gray-400 border border-gray-100">
+                        Idle
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center justify-end gap-1.5">
+
+                      {/* ── Dispatch / Recall primary button ── */}
+                      {activeRoutes[driver.assigned_zone] ? (
+                        <button
+                          onClick={() => handleRecallRoute(driver)}
+                          disabled={dispatching === driver.id}
+                          title="Recall active route"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:border-amber-300 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                        >
+                          {dispatching === driver.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <XCircle className="w-3.5 h-3.5" />}
+                          {dispatching === driver.id ? "Recalling…" : "Recall"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleDispatchRoute(driver)}
+                          disabled={dispatching === driver.id || !driver.vehicle_number || driver.vehicle_number === "Unassigned"}
+                          title={!driver.vehicle_number || driver.vehicle_number === "Unassigned" ? "Assign a vehicle first" : "Dispatch a route to this driver"}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-600 hover:border-emerald-700 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-emerald-500/20"
+                        >
+                          {dispatching === driver.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Truck className="w-3.5 h-3.5" />}
+                          {dispatching === driver.id ? "Dispatching…" : "Dispatch"}
+                        </button>
+                      )}
+
+                      {/* ── Divider ── */}
+                      <div className="w-px h-5 bg-gray-200 mx-0.5" />
+
+                      {/* ── Edit Zone icon button ── */}
+                      <button
+                        onClick={() => openModal(driver, "zone")}
+                        title="Edit assigned zone"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 transition-all duration-150"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* ── Edit Vehicle icon button ── */}
+                      <button
+                        onClick={() => openModal(driver, "vehicle")}
+                        title="Edit assigned vehicle"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-all duration-150"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* ── Divider ── */}
+                      <div className="w-px h-5 bg-gray-200 mx-0.5" />
+
+                      {/* ── Delete icon button ── */}
+                      <button
+                        onClick={() => handleDeleteDriver(driver.id, driver.full_name)}
+                        title="Delete driver account"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-all duration-150"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+
+                    </div>
                   </td>
                 </tr>
               ))

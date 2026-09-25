@@ -21,13 +21,14 @@ import {
   LogOut,
   Loader2,
 } from "lucide-react"
+import EcoRouteLogo from "@/components/EcoRouteLogo"
 
 const NAV_LINKS = [
   { href: "/citizen",          label: "Dashboard",    icon: LayoutDashboard, exact: true },
   { href: "/citizen/schedule", label: "Schedule",     icon: CalendarDays },
   { href: "/citizen/report",   label: "Report Issue", icon: ClipboardList },
   { href: "/citizen/track",    label: "Track Driver", icon: Truck },
-  { href: "/rewards",          label: "Rewards",      icon: Coins },
+  { href: "/citizen/rewards",  label: "Rewards",      icon: Coins },
   { href: "/citizen/guide",    label: "Waste Guide",  icon: BookOpen },
   { href: "/citizen/zones",    label: "Zones",        icon: MapPin },
   { href: "/citizen/profile",  label: "My Profile",   icon: UserCircle },
@@ -172,9 +173,7 @@ export default function CitizenLayout({ children }) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 rounded-lg bg-[#00A878] flex items-center justify-center shadow-md mx-auto">
-            <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
-          </div>
+          <EcoRouteLogo size={40} className="mx-auto rounded-xl shadow-md" />
           <div className="flex items-center gap-2 text-sm text-slate-500 font-medium">
             <Loader2 className="w-4 h-4 animate-spin" />
             Verifying your session…
@@ -205,9 +204,7 @@ export default function CitizenLayout({ children }) {
       >
         {/* Brand + citizen name */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/50">
-          <div className="w-8 h-8 rounded-lg bg-[#00A878] flex items-center justify-center shadow-md shadow-emerald-900/30 shrink-0">
-            <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
+          <EcoRouteLogo size={32} className="rounded-lg shadow-md shrink-0" />
           <div className="min-w-0">
             <p className="font-bold text-white text-sm leading-none tracking-tight">EcoRoute</p>
             <p className="text-[11px] text-slate-400 mt-0.5 font-medium truncate max-w-[130px]" title={citizenName}>

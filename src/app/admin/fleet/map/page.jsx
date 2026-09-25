@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { GoogleMap, useJsApiLoader, OverlayView } from "@react-google-maps/api";
+import { GoogleMap, useJsApiLoader, OverlayView, DirectionsRenderer } from "@react-google-maps/api";
+
+const LIBRARIES = ["places"];
 
 const MAP_CENTER = { lat: 6.9271, lng: 79.8612 }; // Colombo default
 const MAP_OPTIONS = {
@@ -67,13 +69,16 @@ function DriverMarker({ driver, onClick, selected }) {
 
 export default function FleetMapPage() {
   const [drivers, setDrivers] = useState([]);
+  const [reports, setReports] = useState([]);  // active garbage reports
   const [selectedDriver, setSelectedDriver] = useState(null);
+  const [directions, setDirections] = useState([]);  // route lines to reports
   const [mapLoaded, setMapLoaded] = useState(false);
   const mapRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
     id: "google-map-script",
+    libraries: LIBRARIES,
   });
 
   // Fetch active drivers on mount
@@ -87,6 +92,18 @@ export default function FleetMapPage() {
 
   useEffect(() => {
     fetchActiveDrivers();
+
+    // Fetch active (unresolved) garbage reports with lat/lng
+    const fetchReports = async () => {
+      const { data } = await supabase
+        .from("CitizenReports")
+        .select("id, issue_type, zone, latitude, longitude, status")
+        .neq("status", "Resolved")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
+      setReports(data || []);
+    };
+    fetchReports();
 
     // Supabase Realtime — watch driver_profiles for location updates
     const channel = supabase
@@ -128,7 +145,37 @@ export default function FleetMapPage() {
   const handleMarkerClick = (driver) => {
     setSelectedDriver((prev) => (prev?.id === driver.id ? null : driver));
     mapRef.current?.panTo({ lat: driver.latitude, lng: driver.longitude });
+    // Compute routes from driver to all reports in their zone
+    setDirections([]);
   };
+
+  // Compute route whenever selectedDriver changes
+  useEffect(() => {
+    if (!isLoaded || !selectedDriver?.latitude || !selectedDriver?.longitude) {
+      setDirections([]);
+      return;
+    }
+    const zoneReports = reports.filter(
+      (r) => r.latitude && r.longitude && r.zone === selectedDriver.assigned_zone
+    );
+    if (zoneReports.length === 0) { setDirections([]); return; }
+
+    const svc = new window.google.maps.DirectionsService();
+    const promises = zoneReports.map(
+      (rep) =>
+        new Promise((resolve) =>
+          svc.route(
+            {
+              origin: { lat: selectedDriver.latitude, lng: selectedDriver.longitude },
+              destination: { lat: rep.latitude, lng: rep.longitude },
+              travelMode: window.google.maps.TravelMode.DRIVING,
+            },
+            (result, status) => resolve(status === "OK" ? result : null)
+          )
+        )
+    );
+    Promise.all(promises).then((results) => setDirections(results.filter(Boolean)));
+  }, [isLoaded, selectedDriver, reports]);
 
   if (loadError) {
     return (
@@ -160,8 +207,12 @@ export default function FleetMapPage() {
             <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" /> GPS Active
           </span>
           <span className="flex items-center gap-1.5">
-            🚛 Driver Marker
+            🚛 Driver
           </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-red-500" /> Garbage Report
+          </span>
+          <span className="text-slate-500">{reports.length} open report{reports.length !== 1 ? "s" : ""}</span>
         </div>
       </div>
 
@@ -174,6 +225,58 @@ export default function FleetMapPage() {
           options={MAP_OPTIONS}
           onLoad={onMapLoad}
         >
+          {/* Route lines from selected driver to reports */}
+          {directions.map((dir, i) => (
+            <DirectionsRenderer
+              key={i}
+              directions={dir}
+              options={{
+                suppressMarkers: true,
+                polylineOptions: {
+                  strokeColor: "#34d399",
+                  strokeOpacity: 0,
+                  strokeWeight: 0,
+                  icons: [{
+                    icon: {
+                      path: "M 0,-1 0,1",
+                      strokeOpacity: 1,
+                      strokeColor: "#34d399",
+                      strokeWeight: 3,
+                      scale: 3,
+                    },
+                    offset: "0",
+                    repeat: "14px",
+                  }],
+                },
+              }}
+            />
+          ))}
+
+          {/* Garbage report pins */}
+          {reports
+            .filter((r) => r.latitude && r.longitude)
+            .map((rep) => (
+              <OverlayView
+                key={rep.id}
+                position={{ lat: rep.latitude, lng: rep.longitude }}
+                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+              >
+                <div style={{ transform: "translate(-50%, -100%)" }} className="flex flex-col items-center">
+                  <div
+                    className="w-8 h-8 rounded-full bg-red-500 border-2 border-white flex items-center justify-center shadow-lg"
+                    style={{ boxShadow: "0 0 0 3px rgba(239,68,68,0.35)" }}
+                  >
+                    <span className="text-sm leading-none">🗑️</span>
+                  </div>
+                  <div className="w-0 h-0 -mt-px" style={{ borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: "6px solid #ef4444" }} />
+                  <div className="mt-0.5 text-[9px] font-bold bg-red-900/90 text-white px-1.5 py-0.5 rounded-full border border-red-700 whitespace-nowrap">
+                    {rep.zone}
+                  </div>
+                </div>
+              </OverlayView>
+            ))}
+
+          {/* Driver markers */}
           {drivers
             .filter((d) => d.latitude && d.longitude)
             .map((driver) => (

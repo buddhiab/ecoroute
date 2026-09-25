@@ -2,7 +2,9 @@
 
 import { use, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { GoogleMap, useJsApiLoader, Marker, OverlayView } from "@react-google-maps/api";
+import { GoogleMap, useJsApiLoader, OverlayView, DirectionsRenderer } from "@react-google-maps/api";
+
+const LIBRARIES = ["places"];
 
 const MAP_OPTIONS = {
   disableDefaultUI: true,
@@ -38,12 +40,14 @@ export default function CitizenTrackPage({ params }) {
   const [driver, setDriver] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [notifyStatus, setNotifyStatus] = useState(null); // "granted"|"denied"|"pending"|null
+  const [notifyStatus, setNotifyStatus] = useState(null);
+  const [directions, setDirections] = useState(null);
   const mapRef = useRef(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-    id: "google-map-script-track",
+    id: "google-map-script",
+    libraries: LIBRARIES,
   });
 
   // --- Load report + driver ---
@@ -70,11 +74,21 @@ export default function CitizenTrackPage({ params }) {
         return;
       }
 
-      const { data: drv } = await supabase
+      let { data: drv, error: drvErr } = await supabase
         .from("driver_profiles")
-        .select("id, full_name, vehicle_number, assigned_zone, latitude, longitude, is_tracking")
+        .select("id, full_name, vehicle_number, assigned_zone, latitude, longitude, is_tracking, tracking_task_id")
         .eq("id", rep.assigned_driver_id)
         .single();
+
+      // Column not migrated yet — fall back to the original field list
+      if (drvErr) {
+        const fallback = await supabase
+          .from("driver_profiles")
+          .select("id, full_name, vehicle_number, assigned_zone, latitude, longitude, is_tracking")
+          .eq("id", rep.assigned_driver_id)
+          .single();
+        drv = fallback.data;
+      }
 
       setDriver(drv);
       setLoading(false);
@@ -101,6 +115,39 @@ export default function CitizenTrackPage({ params }) {
 
     loadData();
   }, [reportId]);
+
+
+  // The driver only counts as live for THIS report if they are heading to it.
+  // tracking_task_id is undefined until the column is migrated (then any tracking counts).
+  const isTrackingThisReport =
+    !!driver?.is_tracking &&
+    (driver?.tracking_task_id === undefined ||
+      driver?.tracking_task_id === null ||
+      String(driver.tracking_task_id) === String(reportId));
+
+  // --- Compute route whenever driver or garbage location changes ---
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isTrackingThisReport) return;
+    if (!driver?.latitude || !driver?.longitude) return;
+    if (!report?.latitude || !report?.longitude) return;
+
+    const directionsService = new window.google.maps.DirectionsService();
+    directionsService.route(
+      {
+        origin: { lat: driver.latitude, lng: driver.longitude },
+        destination: { lat: report.latitude, lng: report.longitude },
+        travelMode: window.google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === "OK") {
+          setDirections(result);
+        } else {
+          setDirections(null);
+        }
+      }
+    );
+  }, [isLoaded, isTrackingThisReport, driver?.latitude, driver?.longitude, report?.latitude, report?.longitude]);
 
   // --- Web Push subscription ---
   const subscribeToPush = async () => {
@@ -147,8 +194,8 @@ export default function CitizenTrackPage({ params }) {
   // Derived values
   const citizenLat = report?.latitude ?? null;
   const citizenLng = report?.longitude ?? null;
-  const driverLat = driver?.latitude ?? null;
-  const driverLng = driver?.longitude ?? null;
+  const driverLat = isTrackingThisReport ? driver?.latitude ?? null : null;
+  const driverLng = isTrackingThisReport ? driver?.longitude ?? null : null;
   const hasDriverLocation = driverLat && driverLng;
   const hasCitizenLocation = citizenLat && citizenLng;
 
@@ -158,7 +205,9 @@ export default function CitizenTrackPage({ params }) {
       : null;
 
   const mapCenter =
-    hasDriverLocation
+    hasDriverLocation && hasCitizenLocation
+      ? { lat: (driverLat + citizenLat) / 2, lng: (driverLng + citizenLng) / 2 }
+      : hasDriverLocation
       ? { lat: driverLat, lng: driverLng }
       : hasCitizenLocation
       ? { lat: citizenLat, lng: citizenLng }
@@ -168,7 +217,7 @@ export default function CitizenTrackPage({ params }) {
   const isArrived = distanceKm !== null && distanceKm < 0.15;
   const statusLabel = isArrived
     ? "Arrived 🎉"
-    : driver?.is_tracking
+    : isTrackingThisReport
     ? "On the way 🚛"
     : taskStatus === "Resolved"
     ? "Task Completed ✅"
@@ -220,7 +269,7 @@ export default function CitizenTrackPage({ params }) {
           className={`rounded-2xl px-5 py-4 flex items-center justify-between border ${
             isArrived
               ? "bg-emerald-500/10 border-emerald-500/30"
-              : driver?.is_tracking
+              : isTrackingThisReport
               ? "bg-blue-500/10 border-blue-500/30"
               : taskStatus === "Resolved"
               ? "bg-emerald-500/10 border-emerald-500/30"
@@ -246,7 +295,21 @@ export default function CitizenTrackPage({ params }) {
 
       {/* Map */}
       <div className="max-w-lg mx-auto w-full px-5 mt-4">
-        <div className="rounded-2xl overflow-hidden border border-slate-800 shadow-xl" style={{ height: 320 }}>
+        {/* Legend */}
+        {hasDriverLocation && hasCitizenLocation && (
+          <div className="flex items-center gap-4 mb-2 px-1">
+            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Driver
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Garbage Location
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="inline-block w-6 h-0.5 bg-emerald-400" style={{borderTop: "2px dashed #34d399"}} /> Route
+            </span>
+          </div>
+        )}
+        <div className="rounded-2xl overflow-hidden border border-slate-800 shadow-xl" style={{ height: 340 }}>
           {loadError ? (
             <div className="h-full flex items-center justify-center bg-slate-900 text-slate-400 text-sm text-center p-4">
               Map failed to load. Check your Google Maps API key.
@@ -255,35 +318,63 @@ export default function CitizenTrackPage({ params }) {
             <GoogleMap
               mapContainerStyle={{ width: "100%", height: "100%" }}
               center={mapCenter}
-              zoom={hasDriverLocation && hasCitizenLocation ? 14 : 15}
+              zoom={hasDriverLocation && hasCitizenLocation ? 13 : 15}
               options={MAP_OPTIONS}
               onLoad={(map) => { mapRef.current = map; }}
             >
-              {/* Citizen pin */}
+              {/* Route polyline: driver → garbage (exact road path) */}
+              {directions && isTrackingThisReport && (
+                <DirectionsRenderer
+                  directions={directions}
+                  options={{
+                    suppressMarkers: true,
+                    polylineOptions: {
+                      strokeColor: "#34d399",
+                      strokeOpacity: 0,
+                      strokeWeight: 0,
+                      icons: [{
+                        icon: {
+                          path: "M 0,-1 0,1",
+                          strokeOpacity: 1,
+                          strokeColor: "#34d399",
+                          strokeWeight: 4,
+                          scale: 4,
+                        },
+                        offset: "0",
+                        repeat: "16px",
+                      }],
+                    },
+                  }}
+                />
+              )}
+
+              {/* Garbage report pin (red) */}
               {hasCitizenLocation && (
                 <OverlayView
                   position={{ lat: citizenLat, lng: citizenLng }}
                   mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
                 >
                   <div style={{ transform: "translate(-50%, -100%)" }} className="flex flex-col items-center">
-                    <div className="w-9 h-9 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center shadow-lg">
-                      <span className="text-base leading-none">📍</span>
+                    <div className="w-10 h-10 rounded-full bg-red-500 border-2 border-white flex items-center justify-center shadow-lg" style={{ boxShadow: "0 0 0 4px rgba(239,68,68,0.3)" }}>
+                      <span className="text-lg leading-none">🗑️</span>
                     </div>
-                    <div className="w-0 h-0 -mt-px" style={{ borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "7px solid #f59e0b" }} />
-                    <div className="mt-1 text-[10px] font-bold bg-slate-900/90 text-white px-2 py-0.5 rounded-full border border-slate-700 whitespace-nowrap">Your Location</div>
+                    <div className="w-0 h-0 -mt-px" style={{ borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "7px solid #ef4444" }} />
+                    <div className="mt-1 text-[10px] font-bold bg-red-900/90 text-white px-2 py-0.5 rounded-full border border-red-700 whitespace-nowrap">
+                      Garbage Report
+                    </div>
                   </div>
                 </OverlayView>
               )}
 
-              {/* Driver pin */}
-              {hasDriverLocation && driver?.is_tracking && (
+              {/* Driver pin (blue truck) */}
+              {hasDriverLocation && isTrackingThisReport && (
                 <OverlayView
                   position={{ lat: driverLat, lng: driverLng }}
                   mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
                 >
                   <div style={{ transform: "translate(-50%, -100%)" }} className="flex flex-col items-center">
-                    <div className="w-9 h-9 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center shadow-lg">
-                      <span className="text-base leading-none">🚛</span>
+                    <div className="w-10 h-10 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center shadow-lg" style={{ boxShadow: "0 0 0 4px rgba(37,99,235,0.35)" }}>
+                      <span className="text-lg leading-none">🚛</span>
                     </div>
                     <div className="w-0 h-0 -mt-px" style={{ borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "7px solid #2563eb" }} />
                     <div className="mt-1 text-[10px] font-bold bg-slate-900/90 text-white px-2 py-0.5 rounded-full border border-slate-700 whitespace-nowrap">
@@ -314,7 +405,7 @@ export default function CitizenTrackPage({ params }) {
                 {driver.vehicle_number || "Vehicle unassigned"} · Zone: {driver.assigned_zone}
               </p>
             </div>
-            {driver.is_tracking && (
+            {isTrackingThisReport && (
               <span className="flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2.5 py-1 rounded-full whitespace-nowrap">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Live

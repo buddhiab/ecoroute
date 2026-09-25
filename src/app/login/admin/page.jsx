@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -16,6 +16,7 @@ import {
   Loader2,
   ArrowRight,
 } from "lucide-react"
+import EcoRouteLogo from "@/components/EcoRouteLogo"
 
 function PasswordInput({ value, onChange }) {
   const [show, setShow] = useState(false)
@@ -79,16 +80,18 @@ export default function AdminLoginPage() {
 
       if (authError) throw authError
 
-      // 2. Check that this user has role='admin' in their metadata
+      // 2. Check that this user has role='admin' or role='super_admin' in their metadata
       const role = authData.user?.user_metadata?.role
-      if (role !== "admin") {
+      if (role !== "admin" && role !== "super_admin") {
         await supabase.auth.signOut()
         throw new Error(
           "Access denied. This account does not have admin privileges."
         )
       }
 
-      setStatus({ message: "Signed in successfully. Redirecting…", type: "success" })
+      const isSuperAdmin = role === "super_admin"
+      setStatus({ message: `Signed in successfully as ${isSuperAdmin ? "Super Admin" : "Admin"}. Redirecting…`, type: "success" })
+      setIsLoading(false)
       router.push("/admin")
     } catch (err) {
       let msg = err.message || "Login failed. Please try again."
@@ -104,9 +107,7 @@ export default function AdminLoginPage() {
       {/* Header */}
       <header className="shrink-0 bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#00A878] flex items-center justify-center shadow-sm">
-            <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
+          <EcoRouteLogo size={32} className="rounded-lg shadow-sm shrink-0" />
           <span className="font-bold text-slate-800 text-sm tracking-tight">EcoRoute</span>
         </Link>
         <Link href="/register/admin" className="text-xs font-semibold text-slate-400 hover:text-slate-700 transition-colors">

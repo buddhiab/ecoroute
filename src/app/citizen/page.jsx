@@ -353,6 +353,9 @@ export default function CitizenDashboard() {
               <div className="flex items-center gap-1.5 mt-1.5 text-sm text-slate-500">
                 <MapPin className="w-3.5 h-3.5 shrink-0" />
                 <span>Driver: <span className="font-semibold text-slate-700">{schedule.driver}</span></span>
+                <span className="ml-2 inline-flex items-center bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider" title="For demonstration purposes, this driver schedule is static data.">
+                  Demo Data
+                </span>
               </div>
             </div>
             <Link

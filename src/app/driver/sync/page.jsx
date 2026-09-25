@@ -125,6 +125,7 @@ export default function OfflineSyncPage() {
   const [syncing, setSyncing] = useState(false)
   const [syncLog, setSyncLog] = useState([])
   const [clearing, setClearing] = useState(false)
+  const [confirmingClear, setConfirmingClear] = useState(false)
   const [lastSyncTime, setLastSyncTime] = useState(null)
 
   const addLog = (msg, type = "info") => {
@@ -230,7 +231,7 @@ export default function OfflineSyncPage() {
 
   // ── Clear queue manually
   const handleClearQueue = async () => {
-    if (!confirm("Clear all offline queue items? This cannot be undone.")) return
+    setConfirmingClear(false)
     setClearing(true)
     try {
       await clearQueue()
@@ -364,16 +365,32 @@ export default function OfflineSyncPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {queueItems.length > 0 && (
+            {queueItems.length > 0 && (confirmingClear ? (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  onClick={handleClearQueue}
+                  disabled={clearing}
+                  className="h-8 px-3 text-xs font-bold bg-red-600 hover:bg-red-500 text-white rounded-xl"
+                >
+                  Confirm clear
+                </Button>
+                <Button
+                  onClick={() => setConfirmingClear(false)}
+                  className="h-8 px-3 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl"
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
               <Button
-                onClick={handleClearQueue}
+                onClick={() => setConfirmingClear(true)}
                 disabled={clearing}
                 className="h-8 px-3 text-xs font-bold bg-transparent border border-red-700/50 text-red-400 hover:bg-red-900/30 rounded-xl"
               >
                 <Trash2 className="w-3 h-3 mr-1" />
                 Clear
               </Button>
-            )}
+            ))}
             <Button
               onClick={handleForcSync}
               disabled={syncing || !isOnline || queueItems.length === 0}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import {
@@ -15,6 +15,8 @@ import {
   AlertTriangle,
   User,
   Menu,
+  LogOut,
+  Clock,
 } from "lucide-react"
 
 const NAV_LINKS = [
@@ -27,11 +29,38 @@ const NAV_LINKS = [
 
 export default function DriverLayout({ children }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState("connecting")
   const [pendingQueueCount, setPendingQueueCount] = useState(0)
   const [driverProfile, setDriverProfile] = useState(null)
+  const [isApproved, setIsApproved] = useState(null) // null = loading, true/false = known
+  const [activeTaskCount, setActiveTaskCount] = useState(0)
+
+  // Badge: number of unresolved tasks assigned to this driver
+  useEffect(() => {
+    const driverId = driverProfile?.id
+    if (!driverId) return
+    const loadCount = async () => {
+      const { count } = await supabase
+        .from("CitizenReports")
+        .select("*", { count: "exact", head: true })
+        .eq("assigned_driver_id", driverId)
+        .neq("status", "Resolved")
+      setActiveTaskCount(count ?? 0)
+    }
+    loadCount()
+    const channel = supabase
+      .channel(`driver-task-count-${driverId}-${Math.random()}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "CitizenReports", filter: `assigned_driver_id=eq.${driverId}` },
+        loadCount
+      )
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [driverProfile?.id])
 
   useEffect(() => {
     let channel;
@@ -44,15 +73,16 @@ export default function DriverLayout({ children }) {
 
         const { data: driverData } = await supabase
           .from("driver_profiles")
-          .select("id, full_name, vehicle_number, assigned_zone, is_approved")
+          .select("id, full_name, vehicle_number, assigned_zone, is_approved, is_tracking")
           .eq("user_id", user.id)
           .single()
 
-        if (!driverData) return;
+        if (!driverData) { setIsApproved(false); return; }
 
-        // Guard: unapproved drivers cannot use the terminal
-        if (!driverData.is_approved) return;
+        // Guard: unapproved drivers see a friendly waiting screen
+        if (!driverData.is_approved) { setIsApproved(false); return; }
 
+        setIsApproved(true);
         setDriverProfile(driverData);
 
         if (driverData.id) {
@@ -149,6 +179,11 @@ export default function DriverLayout({ children }) {
     return () => clearInterval(interval)
   }, [])
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push("/login/driver")
+  }
+
   const isActive = (link) => {
     if (link.exact) return pathname === link.href
     return pathname.startsWith(link.href)
@@ -161,6 +196,30 @@ export default function DriverLayout({ children }) {
   }[connectionStatus]
 
   const currentPageLabel = NAV_LINKS.find((l) => isActive(l))?.label ?? "Dashboard"
+
+  // ── Pending approval screen
+  if (isApproved === false) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-950">
+        <div className="text-center max-w-sm px-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto mb-5">
+            <Clock className="w-8 h-8 text-amber-400" />
+          </div>
+          <h1 className="text-white font-bold text-xl mb-2">Account Pending Approval</h1>
+          <p className="text-slate-400 text-sm leading-relaxed mb-6">
+            Your driver account has been registered and is awaiting admin approval.
+            You'll be able to access the terminal once approved.
+          </p>
+          <button
+            onClick={handleSignOut}
+            className="text-sm text-slate-500 hover:text-red-400 flex items-center gap-2 mx-auto transition-colors"
+          >
+            <LogOut className="w-4 h-4" /> Sign out
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-slate-950 font-sans overflow-hidden">
@@ -209,7 +268,10 @@ export default function DriverLayout({ children }) {
             {NAV_LINKS.map((link) => {
               const active = isActive(link)
               const Icon = link.icon
-              const showBadge = link.href === "/driver/sync" && pendingQueueCount > 0
+              const isSyncBadge = link.href === "/driver/sync" && pendingQueueCount > 0
+              const isTaskBadge = link.href === "/driver/tasks" && activeTaskCount > 0
+              const showBadge = isSyncBadge || isTaskBadge
+              const badgeCount = isSyncBadge ? pendingQueueCount : activeTaskCount
               return (
                 <li key={link.href}>
                   <Link
@@ -237,8 +299,8 @@ export default function DriverLayout({ children }) {
                     />
                     <span className="flex-1">{link.label}</span>
                     {showBadge && (
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold shrink-0">
-                        {pendingQueueCount}
+                      <span className={`flex h-5 min-w-5 px-1 items-center justify-center rounded-full text-white text-[10px] font-bold shrink-0 ${isTaskBadge ? "bg-[#00A878]" : "bg-amber-500"}`}>
+                        {badgeCount}
                       </span>
                     )}
                     {active && !showBadge && (
@@ -264,6 +326,14 @@ export default function DriverLayout({ children }) {
               <p className="text-xs text-slate-500 truncate">Zone: {driverProfile?.assigned_zone || "Pending"}</p>
             </div>
           </div>
+          {/* Sign Out */}
+          <button
+            onClick={handleSignOut}
+            className="w-full mt-3 flex items-center gap-2 px-2 py-2 rounded-lg text-xs font-medium text-slate-600 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sign Out
+          </button>
         </div>
       </aside>
 
@@ -318,8 +388,10 @@ export default function DriverLayout({ children }) {
               <span className="text-[11px] text-slate-500 hidden md:block">
                 {driverProfile?.assigned_zone || "No Zone"}
               </span>
-              <Zap className="w-3 h-3 text-[#00A878]" />
-              <span className="text-[11px] font-bold text-[#00A878]">ON DUTY</span>
+              <Zap className={`w-3 h-3 ${driverProfile?.is_tracking ? "text-[#00A878]" : "text-slate-500"}`} />
+              <span className={`text-[11px] font-bold ${driverProfile?.is_tracking ? "text-[#00A878]" : "text-slate-500"}`}>
+                {driverProfile?.is_tracking ? "ON ROUTE" : "STANDBY"}
+              </span>
             </div>
           </div>
         </header>

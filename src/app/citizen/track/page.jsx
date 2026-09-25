@@ -30,9 +30,17 @@ export default function CitizenTrackPage() {
   useEffect(() => {
     const fetchReports = async () => {
       setIsLoading(true);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
       const { data } = await supabase
         .from("CitizenReports")
         .select("id, issue_type, zone, status, assigned_driver_id, description, created_at")
+        .eq("user_id", user.id)
         .order("id", { ascending: false })
         .limit(20);
       setReports(data ?? []);

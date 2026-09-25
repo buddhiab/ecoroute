@@ -18,7 +18,26 @@ export default function FleetDispatchPage() {
 
   const fetchRoutes = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase.from("Routes").select("*").order("id", { ascending: true })
+    const { data: { user } } = await supabase.auth.getUser()
+    let driverName = null
+    if (user) {
+      const { data: profile } = await supabase
+        .from("driver_profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .single()
+      driverName = profile?.full_name ?? null
+    }
+    if (!driverName) {
+      setRoutes([])
+      setLoading(false)
+      return
+    }
+    const { data } = await supabase
+      .from("Routes")
+      .select("*")
+      .eq("driver_name", driverName)
+      .order("id", { ascending: true })
     setRoutes(data ?? [])
     setLoading(false)
   }, [])
@@ -44,7 +63,7 @@ export default function FleetDispatchPage() {
             <Truck className="w-6 h-6 text-green-400" />
             Fleet Dispatch
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">All municipal routes — live status board</p>
+          <p className="text-slate-500 text-sm mt-0.5">Your assigned routes — live status board</p>
         </div>
         <button
           onClick={fetchRoutes}
@@ -75,7 +94,7 @@ export default function FleetDispatchPage() {
         <CardHeader className="px-5 py-4 border-b border-slate-800">
           <CardTitle className="text-sm font-black text-white flex items-center gap-2">
             <Truck className="w-4 h-4 text-green-400" />
-            All Routes ({routes.length})
+            My Routes ({routes.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -86,7 +105,7 @@ export default function FleetDispatchPage() {
             </div>
           ) : routes.length === 0 ? (
             <div className="py-12 text-center text-slate-600 font-bold">
-              No routes found in database.
+              No routes assigned to you yet.
             </div>
           ) : (
             <div className="overflow-x-auto">

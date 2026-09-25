@@ -31,17 +31,67 @@ const SCHEDULE_DATA = {
   ],
 }
 
-const NEXT_PICKUPS = {
-  "Colombo 03": { label: "Tomorrow — Monday", time: "07:00 AM", type: "Organic" },
-  "Colombo 04": { label: "Today — Tuesday", time: "07:30 AM", type: "Organic" },
-  "Colombo 05": { label: "Tomorrow — Monday", time: "07:30 AM", type: "Organic" },
-  "Colombo 07": { label: "Today — Tuesday", time: "08:00 AM", type: "Organic" },
+function getNextPickup(schedule) {
+  if (!schedule || schedule.length === 0) return { label: "N/A", time: "N/A", type: "N/A" };
+
+  const now = new Date();
+  const currentDayIndex = now.getDay();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  let nextSlot = null;
+  let minDaysDiff = Infinity;
+
+  for (const slot of schedule) {
+    const match = slot.day.match(/(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)/);
+    if (!match) continue;
+
+    const slotDayName = match[1];
+    const slotDayIndex = days.indexOf(slotDayName);
+
+    let daysDiff = (slotDayIndex - currentDayIndex + 7) % 7;
+
+    if (daysDiff === 0) {
+      const isPM = slot.time.includes("PM");
+      let [timePart] = slot.time.split(" ");
+      let [hourStr, minStr] = timePart.split(":");
+      let hour = parseInt(hourStr, 10);
+      const min = parseInt(minStr, 10);
+      
+      if (isPM && hour !== 12) hour += 12;
+      if (!isPM && hour === 12) hour = 0;
+
+      if (currentHour > hour || (currentHour === hour && currentMinute >= min)) {
+        daysDiff = 7;
+      }
+    }
+
+    if (daysDiff < minDaysDiff) {
+      minDaysDiff = daysDiff;
+      nextSlot = slot;
+    }
+  }
+
+  if (!nextSlot) return { label: "N/A", time: "N/A", type: "N/A" };
+
+  const slotDayName = nextSlot.day.match(/(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)/)[1];
+  let label = slotDayName;
+  if (minDaysDiff === 0) label = `Today — ${slotDayName}`;
+  else if (minDaysDiff === 1) label = `Tomorrow — ${slotDayName}`;
+  
+  return {
+    label,
+    time: nextSlot.time,
+    type: nextSlot.type
+  };
 }
 
 export default function SchedulePage() {
   const [selectedZone, setSelectedZone] = useState("Colombo 05")
   const schedule = SCHEDULE_DATA[selectedZone]
-  const next = NEXT_PICKUPS[selectedZone]
+  const next = getNextPickup(schedule)
 
   return (
     <div className="p-6 md:p-8 max-w-3xl mx-auto w-full space-y-7">

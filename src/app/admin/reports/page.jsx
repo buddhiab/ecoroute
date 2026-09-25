@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  Image as ImageIcon,
 } from "lucide-react"
 
 const ZONES = ["All", "Colombo 03", "Colombo 04", "Colombo 05", "Colombo 07"]
@@ -254,6 +255,17 @@ export default function ReportsPage() {
                           <p className="text-slate-500 text-xs line-clamp-2 leading-relaxed">
                             {report.description}
                           </p>
+                          {report.image_url && (
+                            <a 
+                              href={report.image_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md transition-colors"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5" />
+                              View Photo
+                            </a>
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${STATUS_STYLES[status] ?? STATUS_STYLES.Pending}`}>

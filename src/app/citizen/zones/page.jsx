@@ -1,6 +1,8 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   MapPin,
@@ -102,6 +104,40 @@ function ResolutionBar({ total, resolved }) {
 }
 
 export default function ZonesPage() {
+  const [zonesState, setZonesState] = useState(ZONES)
+  const [globalReports, setGlobalReports] = useState(66) // Fallback static
+
+  useEffect(() => {
+    async function fetchData() {
+      const { data, error } = await supabase
+        .from("CitizenReports")
+        .select("zone, status")
+      
+      if (data && !error) {
+        setGlobalReports(data.length)
+        
+        // Group by zone
+        const aggregated = data.reduce((acc, report) => {
+          if (!acc[report.zone]) {
+            acc[report.zone] = { total: 0, resolved: 0 }
+          }
+          acc[report.zone].total += 1
+          if (report.status === "Resolved") {
+            acc[report.zone].resolved += 1
+          }
+          return acc
+        }, {})
+
+        setZonesState(prev => prev.map(zone => ({
+          ...zone,
+          totalReports: aggregated[zone.name]?.total || 0,
+          resolvedReports: aggregated[zone.name]?.resolved || 0
+        })))
+      }
+    }
+    fetchData()
+  }, [])
+
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto w-full space-y-8">
       {/* Heading */}
@@ -121,7 +157,7 @@ export default function ZonesPage() {
           { label: "Active Zones", value: "4", icon: MapPin, color: "text-purple-600" },
           { label: "Total Routes", value: "15", icon: Truck, color: "text-blue-600" },
           { label: "Collections / Week", value: "60", icon: CalendarDays, color: "text-emerald-600" },
-          { label: "Reports Filed", value: "66", icon: ClipboardList, color: "text-orange-600" },
+          { label: "Reports Filed", value: globalReports.toString(), icon: ClipboardList, color: "text-orange-600" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 text-center">
             <Icon className={`w-5 h-5 ${color} mx-auto mb-1`} strokeWidth={2.5} />
@@ -133,7 +169,7 @@ export default function ZonesPage() {
 
       {/* Zone Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {ZONES.map((zone) => {
+        {zonesState.map((zone) => {
           const resolutionPct =
             zone.totalReports > 0
               ? Math.round((zone.resolvedReports / zone.totalReports) * 100)

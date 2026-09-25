@@ -22,40 +22,25 @@ export async function rewardCitizenTokens(citizenAddress) {
     return receipt;
 }
 
-// Fetch the ECO token balance for a specific address (Diagnostic Version)
+// Fetch the ECO token balance for a specific wallet address
 export async function getEcoBalance(walletAddress) {
-    const { provider, contract } = await getContractSigner();
+    const { provider, contract } = await getContractSigner()
 
-    console.log("1. Checking balance for wallet:", walletAddress);
-    console.log("2. Using Token Contract Address:", ECO_TOKEN_ADDRESS);
-
-    // 1. Verify the network is actually Sepolia
-    const network = await provider.getNetwork();
-    console.log("3. Connected to Network Chain ID:", network.chainId);
-
-    // In ethers v6, chainId is a BigInt, so we check against 11155111n
+    // Verify the network is Sepolia (chainId is BigInt in ethers v6)
+    const network = await provider.getNetwork()
     if (network.chainId !== 11155111n) {
-        console.error("Wrong network detected. Expected Sepolia (11155111).");
-        alert("Wrong network detected in browser! Please switch MetaMask to Sepolia.");
-        return "0";
+        throw new Error("Wrong network. Please switch MetaMask to Sepolia.")
     }
 
-    // 2. Verify that a smart contract actually exists at that address
-    const code = await provider.getCode(ECO_TOKEN_ADDRESS);
+    // Verify a smart contract exists at the configured address
+    const code = await provider.getCode(ECO_TOKEN_ADDRESS)
     if (code === "0x") {
-        console.error("🚨 NO CONTRACT FOUND AT:", ECO_TOKEN_ADDRESS);
-        alert("No contract found at this address. Did you accidentally paste your wallet address into lib/contracts/ecoToken.js?");
-        return "0";
+        throw new Error("No contract found at the configured ECO token address.")
     }
 
-    // 3. If both pass, fetch the balance
-    try {
-        const balanceWei = await contract.balanceOf(walletAddress);
-        return ethers.formatUnits(balanceWei, 18);
-    } catch (error) {
-        console.error("Failed to fetch balance:", error);
-        return "0";
-    }
+    // Fetch and return the formatted balance
+    const balanceWei = await contract.balanceOf(walletAddress)
+    return ethers.formatUnits(balanceWei, 18)
 }
 
 // Burn ECO tokens for fiat withdrawal
@@ -67,7 +52,8 @@ export async function burnEcoTokens(amount) {
 
     // Trigger the MetaMask transaction to send tokens to the municipal treasury
     // REMINDER: Replace "0xYOUR_ADMIN_WALLET_ADDRESS" with your actual admin/treasury MetaMask public address
-    const tx = await contract.transfer("0x11bB14f887c8113E2f20963c0a447aF2f8D6DE65", amountInWei);
+    const TREASURY = process.env.NEXT_PUBLIC_TREASURY_WALLET_ADDRESS;
+    const tx = await contract.transfer(TREASURY, amountInWei);
 
     // Wait for the block to be confirmed on Sepolia
     const receipt = await tx.wait();

@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase"
-import { getContractSigner, rewardCitizenTokens, getEcoBalance } from "@/lib/web3"
+import { getContractSigner } from "@/lib/web3"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { ClipboardList, Zap, CheckCircle2, AlertTriangle, Loader2, MapPin } from "lucide-react"
+import { ClipboardList, Zap, CheckCircle2, AlertTriangle, Loader2, MapPin, Image as ImageIcon } from "lucide-react"
 import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api"
+import { v4 as uuidv4 } from "uuid"
 
 const ZONES = ["Colombo 03", "Colombo 04", "Colombo 05", "Colombo 07"]
 
@@ -60,6 +61,7 @@ export default function ReportIssuePage() {
   const [description, setDescription] = useState("")
   const [exactAddress, setExactAddress] = useState("")
   const [markerPos, setMarkerPos] = useState(defaultCenter)
+  const [imageFile, setImageFile] = useState(null)
   
   const [status, setStatus] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -103,7 +105,35 @@ export default function ReportIssuePage() {
     // 1. Fetch current user to link the report
     const { data: { user } } = await supabase.auth.getUser()
 
-    // 2. Insert into Supabase with user_id
+    // 1.5 Upload image if selected
+    let uploadedImageUrl = null
+    if (imageFile) {
+      setStatus("⏳ Uploading photo…")
+      const fileExt = imageFile.name.split(".").pop()
+      const fileName = `${uuidv4()}.${fileExt}`
+      const filePath = `${user?.id || "anon"}/${fileName}`
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("citizen_reports")
+        .upload(filePath, imageFile)
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError)
+        setStatus("❌ Failed to upload image. Try again without a photo.")
+        setIsSubmitting(false)
+        setTimeout(() => setStatus(null), 6000)
+        return
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("citizen_reports")
+        .getPublicUrl(filePath)
+      
+      uploadedImageUrl = publicUrlData.publicUrl
+      setStatus("⏳ Saving your report to the database…")
+    }
+
+    // 2. Insert into Supabase with user_id and image_url
     const { error: dbError } = await supabase.from("CitizenReports").insert([
       {
         user_id: user?.id ?? null,
@@ -113,6 +143,7 @@ export default function ReportIssuePage() {
         exact_address: exactAddress,
         latitude: markerPos.lat,
         longitude: markerPos.lng,
+        image_url: uploadedImageUrl,
         status: "Pending",
       },
     ])
@@ -125,17 +156,21 @@ export default function ReportIssuePage() {
       return
     }
 
-    // 2. Trigger MetaMask reward
+    // 3. Trigger server-side token reward (owner wallet signs server-side)
     try {
-      setStatus("⏳ Report saved! Connecting to MetaMask to claim your reward…")
+      setStatus("⏳ Report saved! Getting your wallet address to claim reward…")
       const { signer } = await getContractSigner()
       const citizenAddress = await signer.getAddress()
 
-      setStatus("⏳ Please confirm the transaction in MetaMask…")
-      await rewardCitizenTokens(citizenAddress)
+      setStatus("⏳ Sending token reward to your wallet…")
+      const res = await fetch("/api/reward-citizen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ citizenAddress }),
+      })
 
-      // Refresh wallet balance in background
-      getEcoBalance(citizenAddress).catch(() => {})
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Reward failed")
 
       setStatus("🎉 Success! Report submitted & 10 ECO tokens rewarded to your wallet.")
       setDescription("")
@@ -143,8 +178,8 @@ export default function ReportIssuePage() {
       setMarkerPos(defaultCenter)
       setSubmitted(true)
     } catch (web3Err) {
-      console.error("Web3 error:", web3Err)
-      const msg = web3Err?.info?.error?.message ?? web3Err?.message ?? "Unknown error"
+      console.error("Reward error:", web3Err)
+      const msg = web3Err?.message ?? "Unknown error"
       setStatus(`⚠️ Report saved, but token reward failed: ${msg}`)
     }
 
@@ -159,6 +194,7 @@ export default function ReportIssuePage() {
     setDescription("")
     setExactAddress("")
     setMarkerPos(defaultCenter)
+    setImageFile(null)
     setStatus(null)
   }
 
@@ -310,6 +346,28 @@ export default function ReportIssuePage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Photo Upload */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700" htmlFor="photo-upload">
+                  Upload Photo (Optional)
+                </label>
+                <div className="relative">
+                  <input
+                    id="photo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImageFile(e.target.files[0])}
+                    className="block w-full text-sm text-slate-500
+                      file:mr-4 file:py-2.5 file:px-4
+                      file:rounded-lg file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-orange-50 file:text-orange-700
+                      hover:file:bg-orange-100 cursor-pointer
+                      border border-slate-300 rounded-lg bg-white p-1"
+                  />
+                </div>
               </div>
 
               {/* Description */}

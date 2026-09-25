@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import React from "react"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,25 +38,7 @@ const saveToOfflineQueue = async (payload) => {
   tx.objectStore("syncQueue").add(payload)
 }
 
-// ── Driver identification cards (static in demo; would be auth'd in production)
-const DRIVER_ROSTER = [
-  {
-    id: "DRV-002",
-    name: "K. Jayasinghe",
-    zone: "Colombo 03",
-    shift: "Morning · 06:00–14:00",
-    truck: "CMC-TRK-007",
-    status: "On Route",
-  },
-  {
-    id: "DRV-003",
-    name: "S. Perera",
-    zone: "Colombo 04",
-    shift: "Afternoon · 14:00–22:00",
-    truck: "CMC-TRK-015",
-    status: "Standby",
-  },
-]
+
 
 function StatusPill({ status }) {
   const map = {
@@ -122,6 +105,12 @@ export default function DriverDashboard() {
   const [isMarkingDone, setIsMarkingDone] = useState(false)
   const [driverProfile, setDriverProfile] = useState(null)
   const [profileLoading, setProfileLoading] = useState(true)
+  const [otherDrivers, setOtherDrivers] = useState([])
+  const [driverStats, setDriverStats] = useState({ today: 0, week: 0, allTime: 0 })
+  // Use a ref so fetchActiveRoute can always read the latest driver name
+  const driverNameRef = React.useRef(null)
+  const fetchActiveRouteRef = useRef(null)
+  const [cachedRoute, setCachedRoute] = useState(null)
 
   useEffect(() => {
     let channel;
@@ -169,8 +158,47 @@ export default function DriverDashboard() {
           driverData = dbData;
         }
 
-        console.log("DATA FROM SUPABASE:", driverData);
         setDriverProfile(driverData);
+        driverNameRef.current = driverData?.full_name ?? null;
+        // Profile is loaded — now safe to load the route filtered by this driver
+        fetchActiveRouteRef.current?.();
+
+        // Fetch other drivers — only public-safe fields, no vehicle plates or full zone
+        const { data: allDrivers } = await supabase
+          .from("driver_profiles")
+          .select("id, full_name, is_tracking")
+          .neq("id", driverData?.id ?? "00000000-0000-0000-0000-000000000000");
+        setOtherDrivers(allDrivers ?? []);
+
+        // ── Driver performance stats from CitizenReports ──────────────────────
+        if (driverData?.id) {
+          const now = new Date();
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+          const weekStart  = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).toISOString();
+
+          const [{ count: todayCount }, { count: weekCount }, { count: allCount }] = await Promise.all([
+            supabase.from("CitizenReports")
+              .select("*", { count: "exact", head: true })
+              .eq("assigned_driver_id", driverData.id)
+              .eq("status", "Resolved")
+              .gte("updated_at", todayStart),
+            supabase.from("CitizenReports")
+              .select("*", { count: "exact", head: true })
+              .eq("assigned_driver_id", driverData.id)
+              .eq("status", "Resolved")
+              .gte("updated_at", weekStart),
+            supabase.from("CitizenReports")
+              .select("*", { count: "exact", head: true })
+              .eq("assigned_driver_id", driverData.id)
+              .eq("status", "Resolved"),
+          ]);
+
+          setDriverStats({
+            today:   todayCount ?? 0,
+            week:    weekCount  ?? 0,
+            allTime: allCount   ?? 0,
+          });
+        }
 
         // SET UP SUPABASE REALTIME if we have an ID
         if (driverData && driverData.id) {
@@ -185,7 +213,6 @@ export default function DriverDashboard() {
                 filter: `id=eq.${driverData.id}` 
               },
               (payload) => {
-                console.log("Realtime update received!", payload.new);
                 setDriverProfile(prev => ({ ...prev, ...payload.new }));
               }
             )
@@ -206,28 +233,59 @@ export default function DriverDashboard() {
     };
   }, []);
 
-  // ── Fetch active route
+  // ── Fetch active route assigned to THIS driver only
   const fetchActiveRoute = useCallback(async () => {
+    const driverName = driverNameRef.current
+    // Never fall back to an unfiltered query — that would show another driver's route
+    if (!driverName) {
+      setRoute(null)
+      setRouteLoading(false)
+      return
+    }
     setRouteLoading(true)
     const { data } = await supabase
       .from("Routes")
       .select("*")
       .eq("status", "In Progress")
+      .eq("driver_name", driverName)
       .limit(1)
       .maybeSingle()
     if (data) {
       setRoute(data)
       setRouteStartTs((prev) => prev ?? Date.now())
+      try {
+        localStorage.setItem("driver_cached_route", JSON.stringify({ ...data, cachedAt: Date.now() }))
+      } catch {}
+    } else {
+      setRoute(null)
+      try {
+        localStorage.removeItem("driver_cached_route")
+      } catch {}
     }
     setRouteLoading(false)
   }, [])
+
+  useEffect(() => {
+    fetchActiveRouteRef.current = fetchActiveRoute
+  }, [fetchActiveRoute])
 
   // ── Boot: SW + network listeners + route fetch
   useEffect(() => {
     if (typeof window === "undefined") return
     setIsOffline(!navigator.onLine)
 
-    const onOffline = () => setIsOffline(true)
+    try {
+      const raw = localStorage.getItem("driver_cached_route")
+      if (raw) setCachedRoute(JSON.parse(raw))
+    } catch {}
+
+    const onOffline = () => {
+      setIsOffline(true)
+      try {
+        const raw = localStorage.getItem("driver_cached_route")
+        if (raw) setCachedRoute(JSON.parse(raw))
+      } catch {}
+    }
     const onOnline = async () => {
       setIsOffline(false)
       // Auto-sync offline queue on reconnection
@@ -266,8 +324,8 @@ export default function DriverDashboard() {
     window.addEventListener("offline", onOffline)
     window.addEventListener("online", onOnline)
 
-    if (navigator.onLine) fetchActiveRoute()
-    else setRouteLoading(false)
+    // Online: the route is fetched once the driver profile has loaded (see loadDriverData)
+    if (!navigator.onLine) setRouteLoading(false)
 
     return () => {
       window.removeEventListener("offline", onOffline)
@@ -353,7 +411,7 @@ export default function DriverDashboard() {
         </button>
       </div>
 
-      {/* REAL-TIME RED ALERT BANNER */}
+      {/* ── REAL-TIME RED ALERT BANNER ── */}
       {driverProfile?.recent_alert && (
         <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-xl flex items-center justify-between animate-in slide-in-from-top-4 duration-300">
           <div className="flex items-center gap-3">
@@ -363,7 +421,7 @@ export default function DriverDashboard() {
               <p className="text-red-200 text-sm">{driverProfile.recent_alert}</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={dismissAlert}
             className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition shrink-0 ml-4"
           >
@@ -371,6 +429,49 @@ export default function DriverDashboard() {
           </button>
         </div>
       )}
+
+      {/* ── PERFORMANCE STATS ── */}
+      <section>
+        <h2 className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.12em] mb-3">
+          My Performance
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            {
+              label: "Today",
+              value: driverStats.today,
+              icon: "✅",
+              color: driverStats.today > 0 ? "text-emerald-400" : "text-slate-500",
+              bg:    driverStats.today > 0 ? "bg-emerald-500/10 border-emerald-500/20" : "bg-slate-900 border-slate-800",
+            },
+            {
+              label: "This Week",
+              value: driverStats.week,
+              icon: "📅",
+              color: "text-blue-400",
+              bg:    "bg-slate-900 border-slate-800",
+            },
+            {
+              label: "All Time",
+              value: driverStats.allTime,
+              icon: "🏆",
+              color: "text-amber-400",
+              bg:    "bg-slate-900 border-slate-800",
+            },
+          ].map(({ label, value, icon, color, bg }) => (
+            <div key={label} className={`rounded-xl border p-4 text-center ${bg}`}>
+              <p className="text-lg mb-1">{icon}</p>
+              <p className={`text-2xl font-black ${color}`}>{value}</p>
+              <p className="text-[11px] text-slate-500 font-semibold mt-1">{label}</p>
+            </div>
+          ))}
+        </div>
+        {/* ECO Reward note */}
+        <p className="text-[11px] text-slate-600 mt-2 flex items-center gap-1.5">
+          <span className="text-emerald-500">🌿</span>
+          Each resolved task triggers an ECO token reward to the citizen — keep going!
+        </p>
+      </section>
 
       {/* ── ACTIVE ASSIGNED ROUTE ── */}
       <section>
@@ -391,7 +492,9 @@ export default function DriverDashboard() {
             <div>
               <p className="font-semibold text-amber-300 text-sm">Offline — Cached Route</p>
               <p className="text-xs text-amber-400/70 mt-1 leading-relaxed">
-                Colombo 05 (Cached) — displaying last known route. Actions will queue locally.
+                {cachedRoute
+                  ? `${cachedRoute.zone ?? "Unknown zone"} · Route #${cachedRoute.id} (cached ${new Date(cachedRoute.cachedAt).toLocaleTimeString()}) — displaying last known route. Actions will queue locally.`
+                  : "No cached route available. Connect to the internet to load your assignment."}
               </p>
             </div>
           </div>
@@ -538,50 +641,37 @@ export default function DriverDashboard() {
              </div>
           </div>
 
-          {DRIVER_ROSTER.map((driver) => (
-            <div
-              key={driver.id}
-              className="bg-slate-900 border rounded-xl p-4 space-y-3 transition-shadow duration-150 border-slate-800 hover:border-slate-700"
-            >
-              {/* Name + status */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-slate-800 border border-slate-700">
-                    <User className="w-4 h-4 text-slate-500" />
+          {otherDrivers.map((driver) => {
+            const firstName = driver.full_name?.split(" ")[0] ?? "Driver";
+            const isOnRoute = !!driver.is_tracking;
+            return (
+              <div
+                key={driver.id}
+                className="bg-slate-900 border rounded-xl p-4 flex items-center justify-between gap-3 transition-colors duration-150 border-slate-800 hover:border-slate-700"
+              >
+                {/* Avatar + first name only */}
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border font-bold text-sm ${
+                    isOnRoute
+                      ? "bg-[#00A878]/20 border-[#00A878]/40 text-[#00A878]"
+                      : "bg-slate-800 border-slate-700 text-slate-500"
+                  }`}>
+                    {firstName.charAt(0)}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{driver.name}</p>
-                    <p className="text-[11px] text-slate-500 font-mono">{driver.id}</p>
-                  </div>
+                  <p className="text-sm font-semibold text-white">{firstName}</p>
                 </div>
-                <span
-                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
-                    driver.status === "On Route"
-                      ? "bg-[#00A878]/15 text-emerald-300 border-[#00A878]/25"
-                      : "bg-slate-800 text-slate-500 border-slate-700"
-                  }`}
-                >
-                  {driver.status}
+
+                {/* Status badge only — no vehicle plate or zone */}
+                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border shrink-0 ${
+                  isOnRoute
+                    ? "bg-[#00A878]/15 text-emerald-300 border-[#00A878]/25"
+                    : "bg-slate-800 text-slate-500 border-slate-700"
+                }`}>
+                  {isOnRoute ? "🟢 On Route" : "⚪ Standby"}
                 </span>
               </div>
-
-              {/* Details */}
-              <div className="space-y-1.5 pt-0.5 border-t border-slate-800">
-                <div className="flex items-center gap-2 text-xs text-slate-500 pt-2">
-                  <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-600" />
-                  <span>{driver.zone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Truck className="w-3.5 h-3.5 shrink-0 text-slate-600" />
-                  <span>{driver.truck}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Clock className="w-3.5 h-3.5 shrink-0 text-slate-600" />
-                  <span>{driver.shift}</span>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </div>

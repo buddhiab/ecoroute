@@ -11,7 +11,7 @@ function SparkBar({ value, max }) {
   return (
     <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
       <div
-        className="h-full bg-purple-400 rounded-full transition-all duration-500"
+        className="h-full bg-blue-400 rounded-full transition-all duration-500"
         style={{ width: `${pct}%` }}
       />
     </div>
@@ -72,7 +72,7 @@ export default function SQAPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-            <FlaskConical className="w-7 h-7 text-purple-600" />
+            <FlaskConical className="w-7 h-7 text-blue-600" />
             SQA Telemetry
           </h1>
           <p className="text-slate-500 mt-1">HCI usability metrics — cognitive load and interaction speed tracking.</p>
@@ -90,7 +90,7 @@ export default function SQAPage() {
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Events", value: hciLogs.length, icon: Hash, color: "text-purple-700", bg: "bg-purple-50 border-purple-200" },
+          { label: "Total Events", value: hciLogs.length, icon: Hash, color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
           { label: "Avg. Task Time", value: `${avgSec}s`, icon: Timer, color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
           { label: "Total Clicks", value: totalClicks, icon: MousePointerClick, color: "text-orange-700", bg: "bg-orange-50 border-orange-200" },
           { label: "Avg. Clicks/Task", value: avgClicks, icon: Zap, color: "text-slate-700", bg: "bg-slate-50 border-slate-200" },
@@ -107,7 +107,7 @@ export default function SQAPage() {
 
       {/* Task breakdown */}
       {Object.keys(taskBreakdown).length > 0 && (
-        <Card className="bg-white shadow-sm border-t-4 border-t-purple-400">
+        <Card className="bg-white shadow-sm border-t-4 border-t-blue-400">
           <CardHeader>
             <CardTitle className="text-base font-bold text-slate-800">Task Breakdown</CardTitle>
             <CardDescription>Average performance per tracked action type</CardDescription>
@@ -125,7 +125,7 @@ export default function SQAPage() {
                 <tbody className="divide-y divide-slate-50">
                   {Object.entries(taskBreakdown).map(([name, data]) => (
                     <tr key={name} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-purple-700">{name}</td>
+                      <td className="px-4 py-3 font-semibold text-blue-700">{name}</td>
                       <td className="px-4 py-3 font-bold text-slate-700">{data.count}</td>
                       <td className="px-4 py-3 font-mono text-slate-600">
                         {Math.round(data.totalTime / data.count / 1000)}s
@@ -143,7 +143,7 @@ export default function SQAPage() {
       )}
 
       {/* Raw logs table */}
-      <Card className="bg-white shadow-sm border-t-4 border-t-purple-500">
+      <Card className="bg-white shadow-sm border-t-4 border-t-blue-500">
         <CardHeader>
           <CardTitle className="text-xl font-bold text-slate-800">🔬 Raw HCI Log Stream</CardTitle>
           <CardDescription>Background telemetry tracking UI cognitive load and interaction speeds.</CardDescription>
@@ -179,7 +179,7 @@ export default function SQAPage() {
                   hciLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4 font-bold text-slate-400 font-mono text-xs">#{log.id}</td>
-                      <td className="px-5 py-4 font-medium text-purple-700">{log.task_name}</td>
+                      <td className="px-5 py-4 font-medium text-blue-700">{log.task_name}</td>
                       <td className="px-5 py-4">
                         <span className="flex items-center gap-1.5">
                           <MousePointerClick className="w-3.5 h-3.5 text-slate-400" />

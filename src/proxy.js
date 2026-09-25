@@ -7,7 +7,7 @@ const PUBLIC_PREFIXES = [
   "/register",
   "/login",
   "/track",        // public driver tracking page
-  "/rewards",      // public ECO rewards page
+
   "/_next",        // Next.js internals
   "/api/push-subscribe", // citizen push subscription
   "/api/notify",   // triggered by server actions
@@ -64,9 +64,9 @@ export async function proxy(request) {
     if (!user) {
       return NextResponse.redirect(new URL("/login/admin", request.url));
     }
-    // Must have role=admin in user metadata
+    // Must have role=admin or role=super_admin in user metadata
     const role = user.user_metadata?.role;
-    if (role !== "admin") {
+    if (role !== "admin" && role !== "super_admin") {
       // Signed in but wrong role — redirect to their own portal
       const redirectTo =
         role === "driver" ? "/driver" : role === "citizen" ? "/citizen" : "/";
@@ -90,8 +90,13 @@ export async function proxy(request) {
 
   // ── /citizen routes ──────────────────────────────────────────────────────────
   if (pathname.startsWith("/citizen")) {
-    // Citizen portal stays open for now — no Supabase auth required yet
-    // (citizens register with wallet only, not Supabase Auth)
+    if (!user) {
+      return NextResponse.redirect(new URL("/login/citizen", request.url));
+    }
+    const role = user.user_metadata?.role;
+    if (role !== "citizen") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
     return supabaseResponse;
   }
 
