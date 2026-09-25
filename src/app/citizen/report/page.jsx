@@ -134,7 +134,7 @@ export default function ReportIssuePage() {
     }
 
     // 2. Insert into Supabase with user_id and image_url
-    const { error: dbError } = await supabase.from("CitizenReports").insert([
+    const { data: newReport, error: dbError } = await supabase.from("CitizenReports").insert([
       {
         user_id: user?.id ?? null,
         zone,
@@ -146,7 +146,7 @@ export default function ReportIssuePage() {
         image_url: uploadedImageUrl,
         status: "Pending",
       },
-    ])
+    ]).select("id").single()
 
     if (dbError) {
       console.error("Supabase error:", dbError)
@@ -166,7 +166,7 @@ export default function ReportIssuePage() {
       const res = await fetch("/api/reward-citizen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ citizenAddress }),
+        body: JSON.stringify({ citizenAddress, reportId: newReport?.id }),
       })
 
       const data = await res.json()
