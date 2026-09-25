@@ -12,7 +12,9 @@ const PUBLIC_PREFIXES = [
   "/api/push-subscribe", // citizen push subscription
   "/api/notify",   // triggered by server actions
   "/favicon.ico",
-  "/manifest.json",
+  "/manifest",         // PWA manifests (manifest-driver.json / manifest-citizen.json)
+  "/offline",
+  "/icons",
   "/sw.js",
 ];
 

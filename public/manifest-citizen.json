@@ -1,0 +1,31 @@
+{
+  "id": "/citizen",
+  "name": "EcoRoute Citizen",
+  "short_name": "Eco Citizen",
+  "description": "Report waste issues, track your pickup live and earn ECO token rewards.",
+  "start_url": "/citizen",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#00A878",
+  "lang": "en",
+  "categories": ["utilities", "lifestyle"],
+  "icons": [
+    { "src": "/icons/citizen-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/citizen-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/citizen-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Report an Issue",
+      "url": "/citizen/report",
+      "icons": [{ "src": "/icons/citizen-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Track Driver",
+      "url": "/citizen/track",
+      "icons": [{ "src": "/icons/citizen-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

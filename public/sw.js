@@ -1,12 +1,12 @@
-const CACHE_NAME = "ecoroute-v2";
-const OFFLINE_URLS = ["/driver", "/offline"];
+const CACHE_NAME = "ecoroute-v3";
+const PRECACHE_URLS = ["/offline", "/icons/icon-192x192.png"];
 
-// Install event - Cache the core files
+// Install - precache the offline fallback page (one bad URL must not break install)
 self.addEventListener("install", (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(OFFLINE_URLS);
-        })
+        caches.open(CACHE_NAME).then((cache) =>
+            Promise.all(PRECACHE_URLS.map((url) => cache.add(url).catch(() => {})))
+        )
     );
     self.skipWaiting();
 });
@@ -21,17 +21,42 @@ self.addEventListener("activate", (event) => {
     self.clients.claim();
 });
 
-// Fetch event - Serve from cache if offline
+// Fetch - network first; remember good same-origin responses; fall back to cache, then /offline
 self.addEventListener("fetch", (event) => {
-    if (event.request.method !== "GET") return;
+    const req = event.request;
+    if (req.method !== "GET") return;
+
+    const url = new URL(req.url);
+    if (url.origin !== self.location.origin) return;
+    // Never touch API calls, Next.js data/RSC requests, dev HMR or range requests
+    if (
+        url.pathname.startsWith("/api/") ||
+        url.pathname.startsWith("/_next/webpack-hmr") ||
+        url.searchParams.has("_rsc") ||
+        req.headers.has("RSC") ||
+        req.headers.has("range")
+    ) {
+        return;
+    }
 
     event.respondWith(
-        fetch(event.request).catch(() => {
-            return caches.match(event.request).then((response) => {
-                if (response) return response;
-                return caches.match("/driver");
-            });
-        })
+        fetch(req)
+            .then((res) => {
+                if (res.ok && res.type === "basic" && !res.redirected) {
+                    const copy = res.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+                }
+                return res;
+            })
+            .catch(async () => {
+                const cached = await caches.match(req);
+                if (cached) return cached;
+                if (req.mode === "navigate") {
+                    const offline = await caches.match("/offline");
+                    if (offline) return offline;
+                }
+                return Response.error();
+            })
     );
 });
 

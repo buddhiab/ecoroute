@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import RegisterSW from "@/components/RegisterSW";
 import { GoogleMap, useJsApiLoader, OverlayView, DirectionsRenderer } from "@react-google-maps/api";
 
 const LIBRARIES = ["places"];
@@ -249,6 +250,7 @@ export default function CitizenTrackPage({ params }) {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      <RegisterSW />
       {/* Header */}
       <div className="px-5 pt-6 pb-4 bg-slate-900 border-b border-slate-800">
         <div className="max-w-lg mx-auto">

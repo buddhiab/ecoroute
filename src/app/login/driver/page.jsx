@@ -18,6 +18,7 @@ import {
   Clock,
 } from "lucide-react"
 import EcoRouteLogo from "@/components/EcoRouteLogo"
+import InstallAppButton from "@/components/InstallAppButton"
 
 function PasswordInput({ value, onChange }) {
   const [show, setShow] = useState(false)
@@ -194,6 +195,8 @@ export default function DriverLoginPage() {
               >
                 Create a Driver Account <ArrowRight className="w-4 h-4" />
               </Link>
+
+              <InstallAppButton appName="EcoRoute Driver" />
             </form>
           </div>
         </div>

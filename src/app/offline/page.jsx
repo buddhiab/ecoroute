@@ -12,7 +12,7 @@ export default function OfflinePage() {
       
       <h1 className="text-2xl font-bold text-slate-800 mb-2">You are offline</h1>
       <p className="text-slate-500 max-w-sm mb-8">
-        It looks like you&apos;ve lost your internet connection. Don&apos;t worry, the EcoRoute Driver App still works offline!
+        It looks like you&apos;ve lost your internet connection. Pages you have already opened stay available, and drivers can keep logging work that syncs when you are back online.
       </p>
 
       <div className="flex flex-col gap-3 w-full max-w-xs">
@@ -27,7 +27,7 @@ export default function OfflinePage() {
           href="/driver"
           className="w-full h-12 border border-slate-200 text-slate-700 bg-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors shadow-sm"
         >
-          <Home className="w-4 h-4" /> Go to Offline Dashboard
+          <Home className="w-4 h-4" /> Open Driver Dashboard
         </Link>
       </div>
     </div>
