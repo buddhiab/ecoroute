@@ -182,3 +182,38 @@
   from { opacity: 0; transform: translate(-50%, 16px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* Driver terminal — high-contrast "sunlight" theme (opt-in via toggle, scoped to the driver layout) */
+[data-driver-theme="light"] .bg-slate-950 { background-color: #f1f5f9; }
+[data-driver-theme="light"] .bg-slate-900,
+[data-driver-theme="light"] .bg-slate-900\/50 { background-color: #ffffff; }
+[data-driver-theme="light"] .bg-slate-800,
+[data-driver-theme="light"] .bg-slate-800\/50,
+[data-driver-theme="light"] .bg-slate-800\/30 { background-color: #e2e8f0; }
+[data-driver-theme="light"] .bg-slate-700 { background-color: #cbd5e1; }
+[data-driver-theme="light"] .border-slate-800,
+[data-driver-theme="light"] .border-slate-700,
+[data-driver-theme="light"] .border-slate-700\/40,
+[data-driver-theme="light"] .border-slate-700\/50 { border-color: #94a3b8; }
+[data-driver-theme="light"] .text-white { color: #0f172a; }
+[data-driver-theme="light"] .text-slate-200,
+[data-driver-theme="light"] .text-slate-300 { color: #1e293b; }
+[data-driver-theme="light"] .text-slate-400,
+[data-driver-theme="light"] .text-slate-500 { color: #334155; }
+[data-driver-theme="light"] .text-slate-600 { color: #475569; }
+[data-driver-theme="light"] .text-emerald-300,
+[data-driver-theme="light"] .text-emerald-400 { color: #047857; }
+[data-driver-theme="light"] .text-blue-300,
+[data-driver-theme="light"] .text-blue-400 { color: #1d4ed8; }
+[data-driver-theme="light"] .text-amber-300,
+[data-driver-theme="light"] .text-amber-400 { color: #b45309; }
+[data-driver-theme="light"] .text-red-300,
+[data-driver-theme="light"] .text-red-400 { color: #b91c1c; }
+[data-driver-theme="light"] .text-\[\#00A878\] { color: #047857; }
+/* Keep text on coloured buttons/badges white */
+[data-driver-theme="light"] .bg-blue-600,
+[data-driver-theme="light"] .bg-emerald-600,
+[data-driver-theme="light"] .bg-\[\#00A878\],
+[data-driver-theme="light"] .bg-red-500,
+[data-driver-theme="light"] .bg-red-600,
+[data-driver-theme="light"] .bg-amber-500 { color: #ffffff; }

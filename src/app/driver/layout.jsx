@@ -17,6 +17,8 @@ import {
   Menu,
   LogOut,
   Clock,
+  Sun,
+  Moon,
 } from "lucide-react"
 
 const NAV_LINKS = [
@@ -37,6 +39,23 @@ export default function DriverLayout({ children }) {
   const [driverProfile, setDriverProfile] = useState(null)
   const [isApproved, setIsApproved] = useState(null) // null = loading, true/false = known
   const [activeTaskCount, setActiveTaskCount] = useState(0)
+  const [theme, setTheme] = useState("dark")
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("driver_theme")
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved === "light" || saved === "dark") setTheme(saved)
+    } catch {}
+  }, [])
+
+  const toggleTheme = () => {
+    const next = theme === "light" ? "dark" : "light"
+    setTheme(next)
+    try {
+      localStorage.setItem("driver_theme", next)
+    } catch {}
+  }
 
   // Badge: number of unresolved tasks assigned to this driver
   useEffect(() => {
@@ -222,7 +241,7 @@ export default function DriverLayout({ children }) {
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 font-sans overflow-hidden">
+    <div data-driver-theme={theme} className="flex h-screen bg-slate-950 font-sans overflow-hidden">
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
@@ -247,7 +266,7 @@ export default function DriverLayout({ children }) {
           </div>
           <div className="min-w-0">
             <p className="font-bold text-white text-sm leading-none tracking-tight">EcoRoute</p>
-            <p className="text-[11px] text-slate-400 mt-0.5 font-medium">Driver Terminal</p>
+            <p className="text-xs text-slate-400 mt-0.5 font-medium">Driver Terminal</p>
           </div>
         </div>
 
@@ -261,7 +280,7 @@ export default function DriverLayout({ children }) {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.12em] px-3 mb-2.5">
+          <p className="text-xs font-bold text-slate-600 uppercase tracking-[0.12em] px-3 mb-2.5">
             Terminal
           </p>
           <ul className="space-y-0.5">
@@ -278,7 +297,7 @@ export default function DriverLayout({ children }) {
                     href={link.href}
                     onClick={() => setSidebarOpen(false)}
                     className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium
+                      flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
                       transition-all duration-150 group relative
                       ${
                         active
@@ -299,7 +318,7 @@ export default function DriverLayout({ children }) {
                     />
                     <span className="flex-1">{link.label}</span>
                     {showBadge && (
-                      <span className={`flex h-5 min-w-5 px-1 items-center justify-center rounded-full text-white text-[10px] font-bold shrink-0 ${isTaskBadge ? "bg-[#00A878]" : "bg-amber-500"}`}>
+                      <span className={`flex h-5 min-w-5 px-1 items-center justify-center rounded-full text-white text-xs font-bold shrink-0 ${isTaskBadge ? "bg-[#00A878]" : "bg-amber-500"}`}>
                         {badgeCount}
                       </span>
                     )}
@@ -359,13 +378,22 @@ export default function DriverLayout({ children }) {
 
           {/* Right — operator badge + network status */}
           <div className="flex items-center gap-2.5 shrink-0">
+            {/* Sunlight / dark theme toggle */}
+            <button
+              onClick={toggleTheme}
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to sunlight mode"}
+              title={theme === "light" ? "Dark mode" : "Sunlight mode"}
+              className="p-2 rounded-full bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
             {/* Network indicator */}
             {isOffline ? (
               <div className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/30 rounded-full px-2.5 py-1">
                 <WifiOff className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[11px] font-bold text-amber-300">OFFLINE</span>
+                <span className="text-xs font-bold text-amber-300">OFFLINE</span>
                 {pendingQueueCount > 0 && (
-                  <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  <span className="bg-amber-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
                     {pendingQueueCount}
                   </span>
                 )}
@@ -373,7 +401,7 @@ export default function DriverLayout({ children }) {
             ) : (
               <div className="hidden sm:flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1">
                 <Signal className="w-3.5 h-3.5 text-[#00A878]" />
-                <span className="text-[11px] font-semibold text-slate-400">{connectionDot.label}</span>
+                <span className="text-xs font-semibold text-slate-400">{connectionDot.label}</span>
               </div>
             )}
 
@@ -382,14 +410,14 @@ export default function DriverLayout({ children }) {
               <div className="w-5 h-5 rounded-full bg-[#00A878]/20 flex items-center justify-center shrink-0">
                 <User className="w-3 h-3 text-[#00A878]" />
               </div>
-              <span className="text-[11px] font-semibold text-slate-300 hidden sm:block max-w-[100px] truncate">
+              <span className="text-xs font-semibold text-slate-300 hidden sm:block max-w-[100px] truncate">
                 {driverProfile?.vehicle_number || "Awaiting Fleet"}
               </span>
-              <span className="text-[11px] text-slate-500 hidden md:block">
+              <span className="text-xs text-slate-500 hidden md:block">
                 {driverProfile?.assigned_zone || "No Zone"}
               </span>
               <Zap className={`w-3 h-3 ${driverProfile?.is_tracking ? "text-[#00A878]" : "text-slate-500"}`} />
-              <span className={`text-[11px] font-bold ${driverProfile?.is_tracking ? "text-[#00A878]" : "text-slate-500"}`}>
+              <span className={`text-xs font-bold ${driverProfile?.is_tracking ? "text-[#00A878]" : "text-slate-500"}`}>
                 {driverProfile?.is_tracking ? "ON ROUTE" : "STANDBY"}
               </span>
             </div>

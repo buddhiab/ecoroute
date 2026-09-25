@@ -48,7 +48,7 @@ function StatusPill({ status }) {
     Resolved: "bg-[#00A878]/20 text-emerald-300 border-[#00A878]/30",
   }
   return (
-    <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${map[status] ?? map.Pending}`}>
+    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${map[status] ?? map.Pending}`}>
       {status ?? "Pending"}
     </span>
   )
@@ -432,7 +432,7 @@ export default function DriverDashboard() {
 
       {/* ── PERFORMANCE STATS ── */}
       <section>
-        <h2 className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.12em] mb-3">
+        <h2 className="text-xs font-bold text-slate-600 uppercase tracking-[0.12em] mb-3">
           My Performance
         </h2>
         <div className="grid grid-cols-3 gap-3">
@@ -462,12 +462,12 @@ export default function DriverDashboard() {
             <div key={label} className={`rounded-xl border p-4 text-center ${bg}`}>
               <p className="text-lg mb-1">{icon}</p>
               <p className={`text-2xl font-black ${color}`}>{value}</p>
-              <p className="text-[11px] text-slate-500 font-semibold mt-1">{label}</p>
+              <p className="text-xs text-slate-500 font-semibold mt-1">{label}</p>
             </div>
           ))}
         </div>
         {/* ECO Reward note */}
-        <p className="text-[11px] text-slate-600 mt-2 flex items-center gap-1.5">
+        <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5">
           <span className="text-emerald-500">🌿</span>
           Each resolved task triggers an ECO token reward to the citizen — keep going!
         </p>
@@ -475,7 +475,7 @@ export default function DriverDashboard() {
 
       {/* ── ACTIVE ASSIGNED ROUTE ── */}
       <section>
-        <h2 className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.12em] mb-3">
+        <h2 className="text-xs font-bold text-slate-600 uppercase tracking-[0.12em] mb-3">
           Active Assigned Route
         </h2>
 
@@ -519,7 +519,7 @@ export default function DriverDashboard() {
                   <Truck className="w-4.5 h-4.5 text-[#00A878]" style={{ width: 18, height: 18 }} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-[#00A878]/70 uppercase tracking-wider">
+                  <p className="text-xs font-semibold text-[#00A878]/70 uppercase tracking-wider">
                     Assigned Zone
                   </p>
                   <p className="text-lg font-bold text-white leading-tight">{route.zone ?? "—"}</p>
@@ -545,7 +545,7 @@ export default function DriverDashboard() {
                     key={label}
                     className="bg-slate-800/50 border border-slate-700/40 rounded-xl p-3"
                   >
-                    <p className="text-[11px] text-slate-500 font-medium mb-1.5">{label}</p>
+                    <p className="text-xs text-slate-500 font-medium mb-1.5">{label}</p>
                     {label === "Elapsed" ? (
                       isCompleted ? (
                         <span className="text-sm font-bold text-[#00A878]">Done</span>
@@ -618,7 +618,7 @@ export default function DriverDashboard() {
 
       {/* ── DRIVER ROSTER ── */}
       <section>
-        <h2 className="text-[11px] font-bold text-slate-600 uppercase tracking-[0.12em] mb-3">
+        <h2 className="text-xs font-bold text-slate-600 uppercase tracking-[0.12em] mb-3">
           Driver Roster — Active Shift
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -662,7 +662,7 @@ export default function DriverDashboard() {
                 </div>
 
                 {/* Status badge only — no vehicle plate or zone */}
-                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border shrink-0 ${
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border shrink-0 ${
                   isOnRoute
                     ? "bg-[#00A878]/15 text-emerald-300 border-[#00A878]/25"
                     : "bg-slate-800 text-slate-500 border-slate-700"

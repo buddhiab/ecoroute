@@ -369,7 +369,7 @@ export default function DriverTasks() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold tracking-tight">My Tasks</h1>
         {trackingTaskId && (
-          <span className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-3 py-1.5 rounded-full">
+          <span className="flex items-center gap-2 text-sm font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 px-3 py-1.5 rounded-full">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             GPS Active
           </span>
@@ -380,7 +380,7 @@ export default function DriverTasks() {
       <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl p-1 w-fit">
         <button
           onClick={() => setActiveTab("active")}
-          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
             activeTab === "active"
               ? "bg-[#00A878] text-white shadow-md shadow-[#00A878]/20"
               : "text-slate-500 hover:text-slate-300"
@@ -388,7 +388,7 @@ export default function DriverTasks() {
         >
           Active
           <span
-            className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+            className={`ml-1.5 px-1.5 py-0.5 rounded-full text-sm font-black ${
               activeTab === "active" ? "bg-white/20" : "bg-slate-800"
             }`}
           >
@@ -397,7 +397,7 @@ export default function DriverTasks() {
         </button>
         <button
           onClick={() => setActiveTab("resolved")}
-          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+          className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
             activeTab === "resolved"
               ? "bg-slate-700 text-white"
               : "text-slate-500 hover:text-slate-300"
@@ -405,7 +405,7 @@ export default function DriverTasks() {
         >
           Resolved
           <span
-            className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+            className={`ml-1.5 px-1.5 py-0.5 rounded-full text-sm font-black ${
               activeTab === "resolved" ? "bg-white/20" : "bg-slate-800"
             }`}
           >
@@ -452,16 +452,16 @@ export default function DriverTasks() {
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* FIX 5: Urgency-colored badge */}
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${urgency.badge}`}>
+                    <span className={`text-sm font-bold px-2.5 py-1 rounded-full border ${urgency.badge}`}>
                       {urgency.dot} {task.issue_type}
                     </span>
                     {(urgency.label === "Urgent" || urgency.label === "High") && !isResolved && (
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${urgency.badge}`}>
+                      <span className={`text-sm font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${urgency.badge}`}>
                         {urgency.label}
                       </span>
                     )}
                   </div>
-                  <span className="text-xs font-medium text-slate-400 flex items-center gap-1 shrink-0">
+                  <span className="text-sm font-medium text-slate-400 flex items-center gap-1 shrink-0">
                     📍 {task.zone}
                   </span>
                 </div>
@@ -471,7 +471,7 @@ export default function DriverTasks() {
                 {/* Location info */}
                 {task.exact_address && (
                   <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <p className="text-xs font-semibold text-slate-400 mb-1">Exact Address / Landmark</p>
+                    <p className="text-sm font-semibold text-slate-400 mb-1">Exact Address / Landmark</p>
                     <p className="text-sm font-medium text-slate-200 leading-snug">{task.exact_address}</p>
                   </div>
                 )}
@@ -481,7 +481,7 @@ export default function DriverTasks() {
                   <div>
                     <button
                       onClick={() => togglePhoto(task.id)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#00A878] hover:text-emerald-400 bg-[#00A878]/10 px-3 py-1.5 rounded-lg border border-[#00A878]/20 transition-colors"
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#00A878] hover:text-emerald-400 bg-[#00A878]/10 px-3 py-1.5 rounded-lg border border-[#00A878]/20 transition-colors"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
@@ -528,7 +528,7 @@ export default function DriverTasks() {
                 {/* ── Footer: status + action buttons ── */}
                 <div className="flex justify-between items-center pt-4 border-t border-slate-800">
                   <span
-                    className={`text-xs font-bold ${
+                    className={`text-sm font-bold ${
                       isResolved
                         ? "text-emerald-500"
                         : task.status === "In Progress"
@@ -554,7 +554,7 @@ export default function DriverTasks() {
                     {pausedTaskId === task.id && !isTracking && (
                       <button
                         onClick={() => resumeJourney(task)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-md shadow-blue-500/20 flex items-center gap-1.5"
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-md shadow-blue-500/20 flex items-center gap-1.5"
                       >
                         ▶️ Resume Journey
                       </button>
@@ -566,7 +566,7 @@ export default function DriverTasks() {
                         href={buildMapsUrl(task)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition shadow-md shadow-emerald-500/20 flex items-center gap-1.5"
                       >
                         🗺️ Navigate
                       </a>
@@ -576,7 +576,7 @@ export default function DriverTasks() {
                     {isTracking && (
                       <button
                         onClick={() => pauseGPS(task.id)}
-                        className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                        className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-1.5"
                       >
                         ⏸️ Pause GPS
                       </button>
@@ -595,7 +595,7 @@ export default function DriverTasks() {
                 </div>
 
                 {isTracking && (
-                  <div className={`flex items-center gap-1.5 pt-1 text-xs ${
+                  <div className={`flex items-center gap-1.5 pt-1 text-sm ${
                     gpsError ? "text-red-400" : "text-emerald-400/80"
                   }`}>
                     {gpsError ? (
@@ -605,7 +605,7 @@ export default function DriverTasks() {
                         <span className="font-semibold">GPS Error: {gpsError}</span>
                         <button
                           onClick={() => startJourney(task)}
-                          className="ml-auto text-[10px] font-bold text-red-300 hover:text-white bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 px-2 py-0.5 rounded-lg transition"
+                          className="ml-auto text-sm font-bold text-red-300 hover:text-white bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 px-2 py-0.5 rounded-lg transition"
                         >
                           Retry GPS
                         </button>
