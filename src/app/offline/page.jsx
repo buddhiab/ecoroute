@@ -12,7 +12,7 @@ export default function OfflinePage() {
       
       <h1 className="text-2xl font-bold text-slate-800 mb-2">You are offline</h1>
       <p className="text-slate-500 max-w-sm mb-8">
-        It looks like you've lost your internet connection. Don't worry, the EcoRoute Driver App still works offline!
+        It looks like you&apos;ve lost your internet connection. Don&apos;t worry, the EcoRoute Driver App still works offline!
       </p>
 
       <div className="flex flex-col gap-3 w-full max-w-xs">

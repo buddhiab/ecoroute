@@ -217,7 +217,7 @@ export default function TokenStore() {
                                         <option value="Hatton National Bank (HNB)">Hatton National Bank (HNB)</option>
                                         <option value="Sampath Bank">Sampath Bank</option>
                                         <option value="Bank of Ceylon (BOC)">Bank of Ceylon (BOC)</option>
-                                        <option value="People's Bank">People's Bank</option>
+                                        <option value="People's Bank">People&apos;s Bank</option>
                                         <option value="DFCC Bank">DFCC Bank</option>
                                     </select>
                                 </div>

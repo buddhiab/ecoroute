@@ -416,7 +416,7 @@ export default function CitizenTrackPage({ params }) {
       ) : (
         <div className="max-w-lg mx-auto w-full px-5 mt-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center">
-            <p className="text-slate-400 text-sm">No driver assigned yet. You'll be notified when one is dispatched.</p>
+            <p className="text-slate-400 text-sm">No driver assigned yet. You&apos;ll be notified when one is dispatched.</p>
           </div>
         </div>
       )}

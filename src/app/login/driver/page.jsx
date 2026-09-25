@@ -103,17 +103,7 @@ export default function DriverLoginPage() {
         return
       }
 
-      // 4. Approved — save session + redirect
-      localStorage.setItem(
-        "demo_driver_session",
-        JSON.stringify({
-          id: profile.id,
-          full_name: profile.full_name,
-          vehicle_number: profile.vehicle_number,
-          assigned_zone: profile.assigned_zone,
-        })
-      )
-
+      // 4. Approved — redirect
       router.push("/driver")
     } catch (err) {
       console.error("Login error:", err)

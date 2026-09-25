@@ -17,7 +17,6 @@ export default function FleetDispatchPage() {
   const [loading, setLoading] = useState(true)
 
   const fetchRoutes = useCallback(async () => {
-    setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     let driverName = null
     if (user) {
@@ -66,7 +65,7 @@ export default function FleetDispatchPage() {
           <p className="text-slate-500 text-sm mt-0.5">Your assigned routes — live status board</p>
         </div>
         <button
-          onClick={fetchRoutes}
+          onClick={() => { setLoading(true); fetchRoutes() }}
           disabled={loading}
           className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-xl transition-all disabled:opacity-50"
         >

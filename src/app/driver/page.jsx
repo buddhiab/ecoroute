@@ -120,43 +120,19 @@ export default function DriverDashboard() {
         let driverData = null;
 
         if (authError || !user) {
-          // Fallback for UI demo: check if they just registered a mock session
-          const demoSessionStr = localStorage.getItem("demo_driver_session");
-          if (demoSessionStr) {
-            const demoSession = JSON.parse(demoSessionStr);
-            
-            // Try fetching real DB state using the demo session ID
-            if (demoSession.id) {
-               const { data: dbData } = await supabase
-                  .from("driver_profiles")
-                  .select("id, full_name, vehicle_number, assigned_zone, recent_alert")
-                  .eq("id", demoSession.id)
-                  .single();
-               
-               if (dbData) {
-                  driverData = dbData;
-               } else {
-                  driverData = demoSession; // fallback to purely local if DB deleted
-               }
-            } else {
-               driverData = demoSession;
-            }
-          } else {
-            console.warn("No active session found");
-            setProfileLoading(false);
-            return;
-          }
-        } else {
-          // Real authenticated user fetch
-          const { data: dbData, error: dbError } = await supabase
-            .from("driver_profiles")
-            .select("id, full_name, vehicle_number, assigned_zone, recent_alert")
-            .eq("user_id", user.id)
-            .single();
-
-          if (dbError) throw dbError;
-          driverData = dbData;
+          console.warn("No active session found");
+          setProfileLoading(false);
+          return;
         }
+
+        const { data: dbData, error: dbError } = await supabase
+          .from("driver_profiles")
+          .select("id, full_name, vehicle_number, assigned_zone, recent_alert")
+          .eq("user_id", user.id)
+          .single();
+
+        if (dbError) throw dbError;
+        driverData = dbData;
 
         setDriverProfile(driverData);
         driverNameRef.current = driverData?.full_name ?? null;

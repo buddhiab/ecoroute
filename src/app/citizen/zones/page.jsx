@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { SCHEDULE_DATA, getNextPickup } from "@/lib/schedule"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   MapPin,
@@ -18,14 +19,7 @@ const ZONES = [
   {
     id: "colombo-03",
     name: "Colombo 03",
-    neighbourhood: "Kollupitiya · Bambalapitiya",
-    activeRoutes: 3,
-    drivers: ["K. Jayasinghe", "M. Wickrama"],
-    nextPickup: "Tomorrow · 07:00 AM",
-    nextType: "Organic",
-    totalReports: 12,
-    resolvedReports: 9,
-    status: "Active",
+    neighbourhood: "Kollupitiya · Bambalapitiya",    status: "Active",
     accentFrom: "from-emerald-500",
     accentTo: "to-teal-600",
     border: "border-t-emerald-500",
@@ -35,14 +29,7 @@ const ZONES = [
   {
     id: "colombo-04",
     name: "Colombo 04",
-    neighbourhood: "Bambalapitiya · Wellawatte",
-    activeRoutes: 4,
-    drivers: ["S. Perera", "R. Gunawardena", "T. Dias"],
-    nextPickup: "Today · 03:00 PM",
-    nextType: "Recyclable",
-    totalReports: 19,
-    resolvedReports: 15,
-    status: "Active",
+    neighbourhood: "Bambalapitiya · Wellawatte",    status: "Active",
     accentFrom: "from-blue-500",
     accentTo: "to-indigo-600",
     border: "border-t-blue-500",
@@ -52,14 +39,7 @@ const ZONES = [
   {
     id: "colombo-05",
     name: "Colombo 05",
-    neighbourhood: "Kirulapone · Havelock Town",
-    activeRoutes: 5,
-    drivers: ["R. Fernando", "C. Hettige", "B. Rathnayake"],
-    nextPickup: "Tomorrow · 07:30 AM",
-    nextType: "Organic",
-    totalReports: 27,
-    resolvedReports: 22,
-    status: "Active",
+    neighbourhood: "Kirulapone · Havelock Town",    status: "Active",
     accentFrom: "from-amber-500",
     accentTo: "to-orange-600",
     border: "border-t-amber-500",
@@ -69,14 +49,7 @@ const ZONES = [
   {
     id: "colombo-07",
     name: "Colombo 07",
-    neighbourhood: "Cinnamon Gardens · Borella",
-    activeRoutes: 3,
-    drivers: ["A. Silva", "D. Cooray"],
-    nextPickup: "Wed · 08:00 AM",
-    nextType: "E-Waste",
-    totalReports: 8,
-    resolvedReports: 7,
-    status: "Active",
+    neighbourhood: "Cinnamon Gardens · Borella",    status: "Active",
     accentFrom: "from-purple-500",
     accentTo: "to-violet-600",
     border: "border-t-purple-500",
@@ -104,36 +77,42 @@ function ResolutionBar({ total, resolved }) {
 }
 
 export default function ZonesPage() {
-  const [zonesState, setZonesState] = useState(ZONES)
-  const [globalReports, setGlobalReports] = useState(66) // Fallback static
+  const [zonesState, setZonesState] = useState(() =>
+    ZONES.map((z) => ({ ...z, activeRoutes: 0, drivers: [], totalReports: 0, resolvedReports: 0 }))
+  )
+  const [globalReports, setGlobalReports] = useState(0)
+  const [totals, setTotals] = useState({ routes: 0, drivers: 0 })
 
   useEffect(() => {
     async function fetchData() {
-      const { data, error } = await supabase
-        .from("CitizenReports")
-        .select("zone, status")
-      
-      if (data && !error) {
-        setGlobalReports(data.length)
-        
-        // Group by zone
-        const aggregated = data.reduce((acc, report) => {
-          if (!acc[report.zone]) {
-            acc[report.zone] = { total: 0, resolved: 0 }
-          }
-          acc[report.zone].total += 1
-          if (report.status === "Resolved") {
-            acc[report.zone].resolved += 1
-          }
-          return acc
-        }, {})
+      const [reportsRes, driversRes, routesRes] = await Promise.all([
+        supabase.from("CitizenReports").select("zone, status"),
+        supabase.from("driver_profiles").select("full_name, assigned_zone").eq("is_approved", true),
+        supabase.from("Routes").select("zone, status"),
+      ])
 
-        setZonesState(prev => prev.map(zone => ({
-          ...zone,
-          totalReports: aggregated[zone.name]?.total || 0,
-          resolvedReports: aggregated[zone.name]?.resolved || 0
-        })))
-      }
+      const reports = reportsRes.data ?? []
+      const drivers = driversRes.data ?? []
+      const routes = routesRes.data ?? []
+
+      setGlobalReports(reports.length)
+      setTotals({ routes: routes.length, drivers: drivers.length })
+
+      setZonesState((prev) =>
+        prev.map((zone) => {
+          const zr = reports.filter((r) => r.zone === zone.name)
+          return {
+            ...zone,
+            totalReports: zr.length,
+            resolvedReports: zr.filter((r) => r.status === "Resolved").length,
+            activeRoutes: routes.filter((r) => r.zone === zone.name && r.status === "In Progress").length,
+            drivers: drivers
+              .filter((d) => d.assigned_zone === zone.name)
+              .map((d) => d.full_name?.split(" ")[0])
+              .filter(Boolean),
+          }
+        })
+      )
     }
     fetchData()
   }, [])
@@ -154,9 +133,9 @@ export default function ZonesPage() {
       {/* Summary row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Active Zones", value: "4", icon: MapPin, color: "text-purple-600" },
-          { label: "Total Routes", value: "15", icon: Truck, color: "text-blue-600" },
-          { label: "Collections / Week", value: "60", icon: CalendarDays, color: "text-emerald-600" },
+          { label: "Active Zones", value: String(ZONES.length), icon: MapPin, color: "text-purple-600" },
+          { label: "Total Routes", value: String(totals.routes), icon: Truck, color: "text-blue-600" },
+          { label: "Approved Drivers", value: String(totals.drivers), icon: Users, color: "text-emerald-600" },
           { label: "Reports Filed", value: globalReports.toString(), icon: ClipboardList, color: "text-orange-600" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 text-center">
@@ -174,6 +153,7 @@ export default function ZonesPage() {
             zone.totalReports > 0
               ? Math.round((zone.resolvedReports / zone.totalReports) * 100)
               : 0
+          const next = getNextPickup(SCHEDULE_DATA[zone.name])
           return (
             <Card
               key={zone.id}
@@ -228,8 +208,8 @@ export default function ZonesPage() {
                   <div>
                     <p className="text-xs text-slate-400 font-semibold">Next Pickup</p>
                     <p className="text-sm font-black text-slate-800">
-                      {zone.nextPickup}
-                      <span className="font-medium text-slate-500"> · {zone.nextType}</span>
+                      {next.label} · {next.time}
+                      <span className="font-medium text-slate-500"> · {next.type}</span>
                     </p>
                   </div>
                 </div>
@@ -238,6 +218,7 @@ export default function ZonesPage() {
                 <div>
                   <p className="text-xs font-bold text-slate-500 mb-2">Assigned Drivers</p>
                   <div className="flex flex-wrap gap-2">
+                    {zone.drivers.length === 0 && (<span className="text-xs text-slate-400">None assigned yet</span>)}
                     {zone.drivers.map((driver) => (
                       <span
                         key={driver}

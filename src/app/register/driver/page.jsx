@@ -365,17 +365,6 @@ export default function DriverRegisterPage() {
       const driverId = profileData[0]?.id
       setPendingDriverId(driverId)
 
-      // 3. Save demo session so the layout can still load profile info
-      localStorage.setItem(
-        "demo_driver_session",
-        JSON.stringify({
-          id: driverId,
-          full_name: fullName.trim(),
-          vehicle_number: selectedVehicle,
-          assigned_zone: assignedZone,
-        })
-      )
-
       setSubmitted(true)
     } catch (err) {
       console.error("Registration error:", err)
@@ -388,7 +377,6 @@ export default function DriverRegisterPage() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    localStorage.removeItem("demo_driver_session")
     router.push("/register/driver")
   }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useSyncExternalStore } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
@@ -29,11 +29,20 @@ const NAV_LINKS = [
 ]
 
 
+function subscribeOnline(callback) {
+  window.addEventListener("online", callback)
+  window.addEventListener("offline", callback)
+  return () => {
+    window.removeEventListener("online", callback)
+    window.removeEventListener("offline", callback)
+  }
+}
+
 export default function DriverLayout({ children }) {
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isOffline, setIsOffline] = useState(false)
+  const isOffline = useSyncExternalStore(subscribeOnline, () => !navigator.onLine, () => false)
   const [connectionStatus, setConnectionStatus] = useState("connecting")
   const [pendingQueueCount, setPendingQueueCount] = useState(0)
   const [driverProfile, setDriverProfile] = useState(null)
@@ -44,7 +53,6 @@ export default function DriverLayout({ children }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem("driver_theme")
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (saved === "light" || saved === "dark") setTheme(saved)
     } catch {}
   }, [])
@@ -132,20 +140,6 @@ export default function DriverLayout({ children }) {
     }
   }, [])
 
-  // Network status listeners
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    setIsOffline(!navigator.onLine)
-    const onOffline = () => setIsOffline(true)
-    const onOnline = () => setIsOffline(false)
-    window.addEventListener("offline", onOffline)
-    window.addEventListener("online", onOnline)
-    return () => {
-      window.removeEventListener("offline", onOffline)
-      window.removeEventListener("online", onOnline)
-    }
-  }, [])
-
   // Register service worker
   useEffect(() => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
@@ -227,7 +221,7 @@ export default function DriverLayout({ children }) {
           <h1 className="text-white font-bold text-xl mb-2">Account Pending Approval</h1>
           <p className="text-slate-400 text-sm leading-relaxed mb-6">
             Your driver account has been registered and is awaiting admin approval.
-            You'll be able to access the terminal once approved.
+            You&apos;ll be able to access the terminal once approved.
           </p>
           <button
             onClick={handleSignOut}

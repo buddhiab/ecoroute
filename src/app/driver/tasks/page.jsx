@@ -62,12 +62,6 @@ export default function DriverTasks() {
           .eq("user_id", user.id)
           .single();
         if (driverData) resolvedDriverId = driverData.id;
-      } else {
-        const sessionStr = localStorage.getItem("demo_driver_session");
-        if (sessionStr) {
-          const session = JSON.parse(sessionStr);
-          resolvedDriverId = session.id;
-        }
       }
 
       if (!resolvedDriverId) {
@@ -124,7 +118,10 @@ export default function DriverTasks() {
     return () => {
       if (channel) supabase.removeChannel(channel);
       clearTimeout(toastTimerRef.current);
-      stopGPS();
+      if (watcherRef.current !== null) {
+        navigator.geolocation.clearWatch(watcherRef.current);
+        watcherRef.current = null;
+      }
     };
   }, []);
 

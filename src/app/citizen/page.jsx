@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { getContractSigner, getEcoBalance } from "@/lib/web3"
+import { SCHEDULE_DATA, getNextPickup } from "@/lib/schedule"
 import {
   ClipboardList,
   CheckCircle2,
@@ -19,13 +20,6 @@ import {
   Truck,
   Navigation,
 } from "lucide-react"
-
-const ZONE_SCHEDULES = {
-  "Colombo 03": { nextPickup: "Tomorrow, 07:00 AM", type: "Organic", driver: "K. Jayasinghe" },
-  "Colombo 04": { nextPickup: "Today, 03:00 PM", type: "Recyclable", driver: "S. Perera" },
-  "Colombo 05": { nextPickup: "Tomorrow, 07:30 AM", type: "Organic", driver: "R. Fernando" },
-  "Colombo 07": { nextPickup: "Wed, 08:00 AM", type: "E-Waste", driver: "A. Silva" },
-}
 
 const WASTE_TYPE_COLOR = {
   Organic: "text-emerald-700 bg-emerald-50 border-emerald-200",
@@ -132,6 +126,21 @@ export default function CitizenDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [ecoBalance, setEcoBalance] = useState("0")
   const [walletAddress, setWalletAddress] = useState(null)
+  const [zoneDrivers, setZoneDrivers] = useState([])
+
+  // Approved drivers assigned to the selected zone (first names only)
+  useEffect(() => {
+    let cancelled = false
+    supabase
+      .from("driver_profiles")
+      .select("full_name")
+      .eq("assigned_zone", zone)
+      .eq("is_approved", true)
+      .then(({ data }) => {
+        if (!cancelled) setZoneDrivers((data ?? []).map((d) => d.full_name?.split(" ")[0]).filter(Boolean))
+      })
+    return () => { cancelled = true }
+  }, [zone])
 
   // Load citizen name from localStorage
   useEffect(() => {
@@ -214,7 +223,12 @@ export default function CitizenDashboard() {
 
   const totalReports = reports.length
   const resolvedCount = reports.filter((r) => r.status === "Resolved").length
-  const schedule = ZONE_SCHEDULES[zone]
+  const next = getNextPickup(SCHEDULE_DATA[zone])
+  const schedule = {
+    nextPickup: `${next.label}, ${next.time}`,
+    type: next.type,
+    driver: zoneDrivers.length ? zoneDrivers.join(", ") : "Not yet assigned",
+  }
   const wasteTypeBadge = WASTE_TYPE_COLOR[schedule.type] ?? "text-slate-700 bg-slate-50 border-slate-200"
 
   return (
@@ -316,7 +330,7 @@ export default function CitizenDashboard() {
             onChange={(e) => setZone(e.target.value)}
             className="text-xs border border-slate-200 bg-white text-slate-700 font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#00A878]/40 transition-all cursor-pointer"
           >
-            {Object.keys(ZONE_SCHEDULES).map((z) => (
+            {Object.keys(SCHEDULE_DATA).map((z) => (
               <option key={z} value={z}>
                 {z}
               </option>
@@ -353,9 +367,6 @@ export default function CitizenDashboard() {
               <div className="flex items-center gap-1.5 mt-1.5 text-sm text-slate-500">
                 <MapPin className="w-3.5 h-3.5 shrink-0" />
                 <span>Driver: <span className="font-semibold text-slate-700">{schedule.driver}</span></span>
-                <span className="ml-2 inline-flex items-center bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider" title="For demonstration purposes, this driver schedule is static data.">
-                  Demo Data
-                </span>
               </div>
             </div>
             <Link

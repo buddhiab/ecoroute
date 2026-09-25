@@ -357,7 +357,7 @@ export default function FleetMapPage() {
           <div className="bg-slate-900/90 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center max-w-xs">
             <p className="text-4xl mb-3">🚛</p>
             <p className="text-white font-bold mb-1">No Active Drivers</p>
-            <p className="text-slate-400 text-sm">Drivers will appear here once they tap "Start Journey" on their device.</p>
+            <p className="text-slate-400 text-sm">Drivers will appear here once they tap &quot;Start Journey&quot; on their device.</p>
           </div>
         </div>
       )}
