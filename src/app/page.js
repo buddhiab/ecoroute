@@ -45,7 +45,7 @@ async function getLiveStats() {
         headers,
         next: { revalidate: 60 },
       }),
-      fetch(`${url}/rest/v1/Drivers?select=id`, {
+      fetch(`${url}/rest/v1/driver_profiles?select=id&is_approved=eq.true`, {
         headers,
         next: { revalidate: 300 },
       }),
