@@ -10,7 +10,7 @@ export async function POST(request) {
   let claimedReportId = null
 
   try {
-    const user = await getSessionUser()
+    const user = await getSessionUser("citizen")
     if (!user) {
       return NextResponse.json({ error: "Not signed in." }, { status: 401 })
     }

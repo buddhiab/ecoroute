@@ -1,5 +1,6 @@
 ﻿import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
+import { requireAdmin } from "@/lib/supabaseServer"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -7,6 +8,9 @@ const supabaseAdmin = createClient(
 )
 
 export async function DELETE(request) {
+  if (!(await requireAdmin({ superOnly: true }))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
   try {
     const { userId } = await request.json()
     if (!userId) {
@@ -17,7 +21,11 @@ export async function DELETE(request) {
     const { data: { user }, error: fetchError } = await supabaseAdmin.auth.admin.getUserById(userId)
     if (fetchError) throw fetchError
 
-    if (user?.user_metadata?.role === "super_admin") {
+    const targetRole = user?.user_metadata?.role
+    if (targetRole !== "admin" && targetRole !== "super_admin") {
+      return NextResponse.json({ error: "Target is not an admin account." }, { status: 400 })
+    }
+    if (targetRole === "super_admin") {
       return NextResponse.json(
         { error: "Cannot delete a Super Admin account." },
         { status: 403 }

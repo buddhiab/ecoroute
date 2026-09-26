@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { portalFromPath, sessionCookieName } from "@/lib/portal";
 
 // Routes that are fully public — no auth needed
 const PUBLIC_PREFIXES = [
@@ -39,6 +40,7 @@ export async function proxy(request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
+      cookieOptions: { name: sessionCookieName(portalFromPath(pathname)) },
       cookies: {
         getAll() {
           return request.cookies.getAll();

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { sendPushNotification } from "@/lib/webpush";
-import { getSessionUser } from "@/lib/supabaseServer";
+import { requireAdmin } from "@/lib/supabaseServer";
 
 // Admin client — uses service role key (server-only, never exposed to browser)
 const supabaseAdmin = createClient(
@@ -16,9 +16,8 @@ const supabaseAdmin = createClient(
 export async function POST(request) {
   try {
 
-    const user = await getSessionUser();
-    const role = user?.user_metadata?.role;
-    if (!user || (role !== "admin" && role !== "super_admin")) {
+    const admin = await requireAdmin();
+    if (!admin) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 

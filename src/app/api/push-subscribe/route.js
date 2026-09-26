@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { sessionCookieName } from "@/lib/portal";
 
 // Admin client — uses service role key (server-only, never exposed to browser)
 const supabaseAdmin = createClient(
@@ -21,6 +22,7 @@ export async function POST(request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
+        cookieOptions: { name: sessionCookieName("citizen") },
         cookies: {
           getAll() { return cookieStore.getAll(); },
           setAll() {}, // read-only in Route Handlers
