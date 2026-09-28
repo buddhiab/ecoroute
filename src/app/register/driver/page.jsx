@@ -282,7 +282,7 @@ export default function DriverRegisterPage() {
               .map((v) => v.registration_number)
               .filter((reg) => !assignedSet.has(reg))
             setAvailableVehicles(free)
-            if (free.length > 0 && !selectedVehicle) setSelectedVehicle(free[0])
+            if (free.length > 0) setSelectedVehicle((current) => current || free[0])
             setVehiclesLoading(false)
           })
       })

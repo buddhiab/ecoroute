@@ -1,12 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { sendPushNotification } from "@/lib/webpush";
-import { requireAdmin } from "@/lib/supabaseServer";
-
-// Admin client — uses service role key (server-only, never exposed to browser)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { requireAdmin, getAdminClient } from "@/lib/supabaseServer";
 
 /**
  * POST /api/notify
@@ -20,6 +13,9 @@ export async function POST(request) {
     if (!admin) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    // Admin client — uses service role key (server-only, never exposed to browser)
+    const supabaseAdmin = getAdminClient();
 
     const { reportId, driverName } = await request.json();
 

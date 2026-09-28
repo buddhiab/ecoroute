@@ -1,18 +1,13 @@
-﻿import { createClient } from "@supabase/supabase-js"
-import { NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/supabaseServer"
-
-// Uses service role key so we can read all users (admin-only operation)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+﻿import { NextResponse } from "next/server"
+import { requireAdmin, getAdminClient } from "@/lib/supabaseServer"
 
 export async function GET() {
   if (!(await requireAdmin({ superOnly: true }))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   try {
+    // Uses service role key so we can read all users (admin-only operation)
+    const supabaseAdmin = getAdminClient()
     // List all users from Supabase Auth
     const { data, error } = await supabaseAdmin.auth.admin.listUsers()
     if (error) throw error

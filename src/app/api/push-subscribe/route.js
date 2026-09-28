@@ -1,13 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { sessionCookieName } from "@/lib/portal";
-
-// Admin client — uses service role key (server-only, never exposed to browser)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { getAdminClient } from "@/lib/supabaseServer";
 
 /**
  * POST /api/push-subscribe
@@ -41,6 +35,9 @@ export async function POST(request) {
     if (!reportId || !subscription?.endpoint) {
       return Response.json({ error: "reportId and subscription are required" }, { status: 400 });
     }
+
+    // Admin client — uses service role key (server-only, never exposed to browser)
+    const supabaseAdmin = getAdminClient();
 
     // Write subscription using admin client (bypasses RLS for this trusted operation)
     const { error } = await supabaseAdmin

@@ -1,17 +1,12 @@
-﻿import { createClient } from "@supabase/supabase-js"
-import { NextResponse } from "next/server"
-import { requireAdmin } from "@/lib/supabaseServer"
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+﻿import { NextResponse } from "next/server"
+import { requireAdmin, getAdminClient } from "@/lib/supabaseServer"
 
 export async function DELETE(request) {
   if (!(await requireAdmin({ superOnly: true }))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   try {
+    const supabaseAdmin = getAdminClient()
     const { userId } = await request.json()
     if (!userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 })

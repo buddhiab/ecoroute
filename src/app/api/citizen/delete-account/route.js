@@ -1,13 +1,7 @@
-import { createClient } from "@supabase/supabase-js"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { sessionCookieName } from "@/lib/portal";
-
-// Admin client — uses service role key (server-only, NEVER exposed to browser)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+import { getAdminClient } from "@/lib/supabaseServer"
 
 /**
  * DELETE /api/citizen/delete-account
@@ -42,6 +36,8 @@ export async function DELETE(request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Admin client — uses service role key (server-only, NEVER exposed to browser)
+    const supabaseAdmin = getAdminClient()
     const userId  = user.id
     const email   = user.email
 
