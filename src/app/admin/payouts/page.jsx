@@ -117,6 +117,7 @@ export default function PayoutsPage() {
                     "Account No.",
                     "LKR Amount",
                     "ECO Burned",
+                    "Burn Tx",
                     "Status",
                   ].map((h) => (
                     <th key={h} className="px-4 py-4 font-bold whitespace-nowrap">{h}</th>
@@ -127,7 +128,7 @@ export default function PayoutsPage() {
                 {loading ? (
                   [...Array(4)].map((_, i) => (
                     <tr key={i}>
-                      {[...Array(8)].map((__, j) => (
+                      {[...Array(9)].map((__, j) => (
                         <td key={j} className="px-4 py-4">
                           <div className="h-4 bg-slate-100 rounded animate-pulse" />
                         </td>
@@ -136,7 +137,7 @@ export default function PayoutsPage() {
                   ))
                 ) : payouts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-10 text-slate-400 font-medium">
+                    <td colSpan={9} className="text-center py-10 text-slate-400 font-medium">
                       No payout requests recorded yet.
                     </td>
                   </tr>
@@ -173,6 +174,23 @@ export default function PayoutsPage() {
                             <Coins className="w-3.5 h-3.5 shrink-0" />
                             {payout.eco_burned} ECO
                           </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          {payout.burn_tx ? (
+                            <a
+                              href={`https://sepolia.etherscan.io/tx/${payout.burn_tx}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-xs text-emerald-600 hover:text-emerald-700 underline decoration-dotted"
+                              title="Verify the burn transaction on Sepolia Etherscan"
+                            >
+                              {payout.burn_tx.slice(0, 8)}…{payout.burn_tx.slice(-6)}
+                            </a>
+                          ) : (
+                            <span className="text-xs font-bold text-red-500" title="No on-chain burn recorded for this request — do not pay out without verifying manually.">
+                              ⚠ Unverified
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-4">
                           <span

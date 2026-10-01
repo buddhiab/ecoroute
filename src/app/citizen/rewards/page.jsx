@@ -73,10 +73,17 @@ export default function TokenStore() {
         }
 
         setIsSubmitting(true)
-        setStatusMessage("⏳ Processing payout request...")
 
         try {
-            // 1. Log payout request to Supabase
+            // 1. Burn the tokens on-chain FIRST. Only a successful, confirmed burn
+            //    produces a transaction hash — nothing is logged as a payout request
+            //    until we can prove the tokens actually left the citizen's wallet.
+            setStatusMessage("⏳ Please confirm the transaction in MetaMask...")
+            const receipt = await burnEcoTokens(tokensNum)
+
+            // 2. Log the payout request, tied to the burn transaction hash so the
+            //    admin can verify it against Sepolia before any real LKR is sent.
+            setStatusMessage("⏳ Burn confirmed. Logging your payout request...")
             const { error } = await supabase.from("BankPayouts").insert([
                 {
                     wallet_address: userAddress,
@@ -85,15 +92,22 @@ export default function TokenStore() {
                     account_name: accountName,
                     account_number: accountNumber,
                     bank_name: bankName,
-                    status: "Pending Transfer"
+                    status: "Pending Transfer",
+                    burn_tx: receipt.hash,
                 }
             ])
 
-            if (error) throw error
-
-            // 2. Trigger Smart Contract (MetaMask Popup)
-            setStatusMessage("⏳ Please confirm the transaction in MetaMask...")
-            await burnEcoTokens(tokensNum)
+            if (error) {
+                // Tokens are already burned — this must not be silently lost.
+                setStatusMessage(
+                    `⚠️ Your ${tokensNum} ECO was burned (tx: ${receipt.hash}) but we could not log the payout request. ` +
+                    `Please contact support with this transaction ID.`
+                )
+                const updatedBalance = await getEcoBalance(userAddress)
+                setEcoBalance(updatedBalance)
+                setIsSubmitting(false)
+                return
+            }
 
             setStatusMessage(`🎉 Success! ${tokensNum} ECO converted to LKR ${calculatedLKR.toLocaleString()}. Direct bank transfer initiated.`);
 
@@ -108,7 +122,8 @@ export default function TokenStore() {
 
         } catch (err) {
             console.error("Withdrawal error:", err)
-            setStatusMessage(`❌ Payout request failed: ${err.message}`)
+            const msg = err?.shortMessage || err?.message || "Transaction failed"
+            setStatusMessage(`❌ Burn transaction failed — no payout was requested: ${msg}`)
         } finally {
             setIsSubmitting(false)
             setTimeout(() => setStatusMessage(null), 8000)

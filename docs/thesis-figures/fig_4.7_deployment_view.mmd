@@ -1,0 +1,67 @@
+flowchart TB
+    subgraph Client Environments
+        subgraph Citizen Device
+            CB[Browser]
+            CSW[Service Worker]
+            CM[MetaMask Extension]
+            CB -.-> CSW
+        end
+
+        subgraph Driver Device
+            DB[Browser]
+            DSW[Service Worker]
+            DIDB[(IndexedDB Offline Queue)]
+            DB -.-> DSW
+            DB -.-> DIDB
+        end
+
+        subgraph Admin Device
+            AB[Browser]
+        end
+    end
+
+    subgraph Cloud Application Layer
+        Vercel[Next.js Serverless Edge/Node]
+        Middleware[Auth Middleware]
+        APIRewards["/api/reward-citizen"]
+        Wallet[(Secure Treasury Wallet)]
+        
+        Vercel --- Middleware
+        Vercel --- APIRewards
+        APIRewards -.-> Wallet
+    end
+
+    subgraph Backend Services
+        Supabase[(Supabase)]
+        SDB[PostgreSQL DB]
+        SAuth[Authentication]
+        SStore[Blob Storage]
+        SReal[Realtime Subscriptions]
+        
+        Supabase --- SDB
+        Supabase --- SAuth
+        Supabase --- SStore
+        Supabase --- SReal
+    end
+
+    subgraph External Networks
+        Blockchain((Ethereum Sepolia Testnet))
+        PushService((Web Push Service))
+    end
+
+    %% Connections
+    CB -->|HTTPS| Vercel
+    DB -->|HTTPS| Vercel
+    AB -->|HTTPS| Vercel
+
+    CB -->|HTTPS| Supabase
+    DB -->|HTTPS| Supabase
+    AB -->|HTTPS| Supabase
+    DIDB -.->|Sync when online| Supabase
+
+    CM -->|RPC| Blockchain
+    APIRewards -->|RPC + Signed Tx| Blockchain
+    
+    Vercel -->|Push API| PushService
+    PushService --> CSW
+    PushService --> DSW

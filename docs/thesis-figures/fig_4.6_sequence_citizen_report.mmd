@@ -1,0 +1,27 @@
+sequenceDiagram
+    actor Citizen
+    participant Browser
+    participant Storage as Supabase Storage
+    participant DB as Supabase DB
+    participant Server as Next.js Server
+    participant Blockchain as Sepolia Network
+
+    Citizen->>Browser: Submit Report (Data + Photo)
+    opt Has Photo
+        Browser->>Storage: Upload Photo
+        Storage-->>Browser: Return image_url
+    end
+
+    Browser->>DB: Insert Report (status: Pending)
+    DB-->>Browser: Return report_id
+
+    Browser->>Server: POST /api/reward-citizen (report_id)
+    Server->>Server: Validate & Initialize Wallet
+    Server->>Blockchain: sign & send ERC-20 Transfer
+    Blockchain-->>Server: Transaction Hash (reward_tx)
+    
+    Server->>DB: UPDATE CitizenReports SET reward_tx = hash
+    DB-->>Server: Confirm Update
+    Server-->>Browser: Return 200 OK
+    
+    Browser-->>Citizen: Display 10 Eco-Tokens Reward Banner

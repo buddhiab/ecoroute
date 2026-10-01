@@ -1,0 +1,100 @@
+erDiagram
+    driver_profiles {
+        uuid id PK
+        uuid user_id FK
+        text full_name
+        text email
+        text phone_number
+        text vehicle_number
+        text license_number
+        text assigned_zone
+        boolean is_approved
+        float latitude
+        float longitude
+        boolean is_tracking
+        text recent_alert
+        timestamp created_at
+    }
+
+    CitizenReports {
+        uuid id PK
+        uuid user_id FK
+        text zone
+        text issue_type
+        text description
+        text exact_address
+        float latitude
+        float longitude
+        text status
+        uuid assigned_driver_id FK
+        text image_url
+        text reward_tx
+        timestamp created_at
+    }
+
+    Routes {
+        uuid id PK
+        text driver_name
+        text zone
+        text status
+    }
+
+    HCILogs {
+        uuid id PK
+        text task_name
+        integer clicks
+        integer time_taken
+    }
+
+    BankPayouts {
+        uuid id PK
+        text wallet_address
+        integer eco_burned
+        numeric lkr_amount
+        text account_name
+        text account_number
+        text bank_name
+        text status
+    }
+
+    vehicles {
+        text registration_number PK
+        timestamp created_at
+    }
+
+    push_subscriptions {
+        uuid report_id FK
+        text endpoint UK
+        text p256dh
+        text auth
+    }
+
+    profiles {
+        text contact PK
+        text contact_type
+        text role
+        text full_name
+        text email
+        text wallet_address
+        text phone
+        text zone
+        text house_number
+        text preferred_day
+        text how_heard
+        text department
+    }
+
+    citizen_profiles {
+        uuid user_id FK
+    }
+
+    admin_profiles {
+        text wallet_address PK
+        text full_name
+        text department
+    }
+
+    driver_profiles ||--o{ CitizenReports : "assigned_to"
+    CitizenReports ||--o{ push_subscriptions : "has"
+    profiles ||--o| citizen_profiles : "extends"
+    profiles ||--o| driver_profiles : "extends"

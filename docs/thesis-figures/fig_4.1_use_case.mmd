@@ -1,0 +1,47 @@
+flowchart LR
+    %% Actors
+    Admin([Administrator])
+    Driver([Driver])
+    Citizen([Citizen])
+
+    %% Citizen Use Cases
+    subgraph Citizen Actions
+        C1(Register / Login)
+        C2(View Schedules)
+        C3(Submit Report)
+        C4(Upload Photo Evidence)
+        C5(Track Driver Location)
+        C6(Request Token Payout)
+    end
+    Citizen --> C1
+    Citizen --> C2
+    Citizen --> C3
+    C3 -.->|includes| C4
+    Citizen --> C5
+    Citizen --> C6
+
+    %% Driver Use Cases
+    subgraph Driver Actions
+        D1(Register / Login)
+        D2(View Assigned Tasks)
+        D3(Complete Route)
+        D4(Sync Offline Progress)
+    end
+    Driver --> D1
+    Driver --> D2
+    Driver --> D3
+    D3 -.->|extends| D4
+
+    %% Admin Use Cases
+    subgraph Admin Actions
+        A1(Approve Drivers)
+        A2(Manage Super Admins)
+        A3(Dispatch / Assign Routes)
+        A4(Monitor Fleet Real-time)
+        A5(View SQA Telemetry)
+    end
+    Admin --> A1
+    Admin --> A2
+    Admin --> A3
+    Admin --> A4
+    Admin --> A5

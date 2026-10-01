@@ -1,0 +1,20 @@
+flowchart TD
+    Start((Start)) --> A[Citizen fills report details]
+    A --> B{Attach Photo?}
+    B -->|Yes| C[Upload Photo to Storage]
+    C --> D[Get Image URL]
+    D --> E[Submit Form]
+    B -->|No| E
+    
+    E --> F[System inserts report into DB]
+    F --> G[System triggers /api/reward-citizen]
+    
+    G --> H[Server validates request]
+    H --> I[Server signs transaction with Treasury Wallet]
+    I --> J[Blockchain processes Token Transfer]
+    
+    J --> K[Server receives Transaction Hash]
+    K --> L[Server updates report with reward_tx]
+    
+    L --> M[Display Success & Token Alert to Citizen]
+    M --> End((End))
