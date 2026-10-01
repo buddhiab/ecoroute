@@ -20,6 +20,9 @@ import {
   UserCircle,
   LogOut,
   Loader2,
+  Download,
+  Share,
+  X,
 } from "lucide-react"
 import EcoRouteLogo from "@/components/EcoRouteLogo"
 
@@ -53,6 +56,48 @@ export default function CitizenShell({ children }) {
   const [walletLoading, setWalletLoading] = useState(false)
   const [walletError, setWalletError]   = useState(null)
   const [sidebarOpen, setSidebarOpen]   = useState(false)
+
+  // Install prompt — shown across the whole citizen app, not just the login
+  // page, so someone who lands straight on /citizen (e.g. a bookmark or a
+  // shared link) still gets offered the installable app.
+  const [installPrompt, setInstallPrompt] = useState(null)
+  const [isIOS, setIsIOS]                 = useState(false)
+  const [appInstalled, setAppInstalled]   = useState(true) // assume installed until proven otherwise
+  const [installBannerDismissed, setInstallBannerDismissed] = useState(true)
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true
+    setAppInstalled(standalone)
+    setIsIOS(/iphone|ipad|ipod/i.test(navigator.userAgent))
+    try {
+      setInstallBannerDismissed(sessionStorage.getItem("citizen_install_dismissed") === "1")
+    } catch {
+      setInstallBannerDismissed(false)
+    }
+
+    const onPrompt = (e) => {
+      e.preventDefault()
+      setInstallPrompt(e)
+    }
+    const onInstalled = () => {
+      setAppInstalled(true)
+      setInstallPrompt(null)
+    }
+    window.addEventListener("beforeinstallprompt", onPrompt)
+    window.addEventListener("appinstalled", onInstalled)
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt)
+      window.removeEventListener("appinstalled", onInstalled)
+    }
+  }, [])
+
+  const dismissInstallBanner = () => {
+    setInstallBannerDismissed(true)
+    try { sessionStorage.setItem("citizen_install_dismissed", "1") } catch {}
+  }
+
+  const showInstallBanner = !appInstalled && !installBannerDismissed && (installPrompt || isIOS)
 
   // ── Auth guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -363,6 +408,46 @@ export default function CitizenShell({ children }) {
             )}
           </div>
         </header>
+
+        {/* Install app banner — visible everywhere in the citizen portal */}
+        {showInstallBanner && (
+          <div className="shrink-0 bg-[#00A878]/10 border-b border-[#00A878]/20 px-5 py-2.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Download className="w-4 h-4 text-[#00A878] shrink-0" />
+              {installPrompt ? (
+                <span className="text-xs font-semibold text-slate-700 truncate">
+                  Install the EcoRoute Citizen app for faster, full-screen access.
+                </span>
+              ) : (
+                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1 truncate">
+                  <Share className="w-3.5 h-3.5 shrink-0" />
+                  Install EcoRoute: tap Share, then &quot;Add to Home Screen&quot;.
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {installPrompt && (
+                <button
+                  onClick={async () => {
+                    installPrompt.prompt()
+                    await installPrompt.userChoice
+                    setInstallPrompt(null)
+                  }}
+                  className="text-xs font-bold text-white bg-[#00A878] hover:bg-[#009468] px-3 py-1.5 rounded-full transition-colors"
+                >
+                  Install
+                </button>
+              )}
+              <button
+                onClick={dismissInstallBanner}
+                aria-label="Dismiss"
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-white/60 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── PAGE CONTENT ── */}
         <main className="flex-1 overflow-y-auto">

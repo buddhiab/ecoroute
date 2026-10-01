@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Gift, Loader2 } from "lucide-react"
 
-// Conversion rate: 1 ECO = 10 LKR
-const EXCHANGE_RATE = 10
+// Conversion rate: 1 ECO = N LKR. Configurable via NEXT_PUBLIC_ECO_TO_LKR_RATE
+// (e.g. in .env.local / Vercel env vars) — falls back to 10 if unset or invalid.
+const EXCHANGE_RATE = Number(process.env.NEXT_PUBLIC_ECO_TO_LKR_RATE) || 10
 
 export default function TokenStore() {
     const [userAddress, setUserAddress] = useState(null)
