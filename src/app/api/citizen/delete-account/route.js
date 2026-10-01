@@ -1,7 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
-import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
-import { sessionCookieName } from "@/lib/portal";
+import { getSessionUser } from "@/lib/supabaseServer"
 
 // Admin client — uses service role key (server-only, NEVER exposed to browser)
 const supabaseAdmin = createClient(
@@ -23,22 +21,9 @@ const supabaseAdmin = createClient(
 export async function DELETE(request) {
   try {
     // ── 1. Verify the caller has a valid session ───────────────────────────────
-    const cookieStore = await cookies()
-    const supabaseAuth = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        cookieOptions: { name: sessionCookieName("citizen") },
-        cookies: {
-          getAll() { return cookieStore.getAll() },
-          setAll() {},  // read-only in Route Handlers
-        },
-      }
-    )
+    const user = await getSessionUser("citizen")
 
-    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser()
-
-    if (userError || !user) {
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 })
     }
 

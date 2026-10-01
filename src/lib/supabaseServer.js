@@ -5,6 +5,13 @@ import { sessionCookieName } from "./portal";
 
 // Returns the signed-in user (validated server-side) for the given portal
 // ("admin" | "driver" | "citizen") from the request cookies, or null.
+//
+// getUser() can trigger a token refresh when the access token has expired.
+// Route Handlers CAN write response cookies via next/headers cookies().set(),
+// so we persist any refreshed session here — if we didn't, Supabase would
+// still rotate/consume the refresh token server-side, but the new one would
+// never reach the browser, breaking the *next* request's session (a one-off
+// "Not signed in" that fixes itself on reload, until it doesn't).
 export async function getSessionUser(portal) {
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -14,7 +21,15 @@ export async function getSessionUser(portal) {
       cookieOptions: { name: sessionCookieName(portal) },
       cookies: {
         getAll: () => cookieStore.getAll(),
-        setAll: () => {},
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            try {
+              cookieStore.set(name, value, options);
+            } catch {
+              // Can be called from a context that can't set cookies — safe to ignore.
+            }
+          });
+        },
       },
     }
   );
