@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { getContractSigner, getEcoBalance } from "@/lib/web3"
+import { saveWalletAddress } from "@/lib/profileWallet"
 import {
   LayoutDashboard,
   CalendarDays,
@@ -167,6 +168,9 @@ export default function CitizenShell({ children }) {
           setUserAddress(address)
           const balance = await getEcoBalance(address)
           setEcoBalance(balance)
+          // Keep the profile's saved address in sync so reward claiming
+          // (server-side, reads the profile) always matches what's connected here.
+          saveWalletAddress(address).catch(() => {})
         }
       } catch {
         // Silent fail
@@ -184,6 +188,7 @@ export default function CitizenShell({ children }) {
       setUserAddress(address)
       const balance = await getEcoBalance(address)
       setEcoBalance(balance)
+      await saveWalletAddress(address)
     } catch (err) {
       console.error("Wallet connection failed:", err)
       setWalletError("Failed to connect wallet. Please ensure MetaMask is unlocked.")

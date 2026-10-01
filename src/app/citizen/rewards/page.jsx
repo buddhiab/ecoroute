@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { getContractSigner, getEcoBalance, burnEcoTokens } from "@/lib/web3"
+import { saveWalletAddress } from "@/lib/profileWallet"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Gift, Loader2 } from "lucide-react"
@@ -31,11 +32,15 @@ export default function TokenStore() {
     useEffect(() => {
         const initWallet = async () => {
             try {
+                if (typeof window === "undefined" || !window.ethereum) return
+                const accounts = await window.ethereum.request({ method: "eth_accounts" })
+                if (!accounts || accounts.length === 0) return // don't prompt on page load
                 const { signer } = await getContractSigner()
                 const address = await signer.getAddress()
                 setUserAddress(address)
                 const balance = await getEcoBalance(address)
                 setEcoBalance(balance)
+                saveWalletAddress(address).catch(() => {})
             } catch (err) {
                 // Wallet not connected
             }
@@ -91,6 +96,7 @@ export default function TokenStore() {
             setUserAddress(address)
             const balance = await getEcoBalance(address)
             setEcoBalance(balance)
+            await saveWalletAddress(address)
         } catch (error) {
             console.error("Wallet connection failed:", error)
             showBriefError("Failed to connect wallet. Make sure MetaMask is unlocked.")
