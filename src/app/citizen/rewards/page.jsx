@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { getContractSigner, getEcoBalance, burnEcoTokens } from "@/lib/web3"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Gift, Loader2 } from "lucide-react"
 
 // Conversion rate: 1 ECO = 10 LKR
 const EXCHANGE_RATE = 10
@@ -14,6 +15,11 @@ export default function TokenStore() {
     const [ecoBalance, setEcoBalance] = useState("0")
     const [statusMessage, setStatusMessage] = useState(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    // Unclaimed report rewards — these never required MetaMask to earn,
+    // only to claim. See /api/claim-rewards.
+    const [pendingCount, setPendingCount] = useState(null) // null = loading
+    const [claiming, setClaiming] = useState(false)
 
     // Bank form state
     const [tokensToCash, setTokensToCash] = useState("")
@@ -35,6 +41,47 @@ export default function TokenStore() {
         }
         initWallet()
     }, [])
+
+    useEffect(() => {
+        const loadPendingCount = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) { setPendingCount(0); return }
+            const { count } = await supabase
+                .from("CitizenReports")
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", user.id)
+                .is("reward_tx", null)
+            setPendingCount(count ?? 0)
+        }
+        loadPendingCount()
+    }, [])
+
+    const handleClaimRewards = async () => {
+        setClaiming(true)
+        setStatusMessage("⏳ Claiming your pending rewards…")
+        try {
+            const res = await fetch("/api/claim-rewards", { method: "POST" })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || "Claim failed")
+
+            if (data.claimed > 0) {
+                setStatusMessage(`🎉 Claimed ${data.totalEco} ECO from ${data.claimed} report${data.claimed === 1 ? "" : "s"}!`)
+                setPendingCount((prev) => Math.max(0, (prev ?? 0) - data.claimed))
+                if (userAddress) {
+                    const updatedBalance = await getEcoBalance(userAddress)
+                    setEcoBalance(updatedBalance)
+                }
+            } else {
+                setStatusMessage(data.message ? `ℹ️ ${data.message}` : `⚠️ Nothing claimed${data.lastError ? `: ${data.lastError}` : "."}`)
+            }
+        } catch (err) {
+            console.error("Claim rewards error:", err)
+            setStatusMessage(`❌ ${err.message}`)
+        } finally {
+            setClaiming(false)
+            setTimeout(() => setStatusMessage(null), 8000)
+        }
+    }
 
     const connectWallet = async () => {
         try {
@@ -173,6 +220,43 @@ export default function TokenStore() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* Unclaimed Report Rewards — no MetaMask needed to earn these */}
+                <Card className="shadow-sm border-t-4 border-t-amber-400 bg-white">
+                    <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                                <Gift className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-slate-800">
+                                    {pendingCount === null
+                                        ? "Checking for unclaimed rewards…"
+                                        : pendingCount > 0
+                                        ? `${pendingCount} unclaimed report${pendingCount === 1 ? "" : "s"} — ${pendingCount * 10} ECO waiting`
+                                        : "You're all caught up"}
+                                </p>
+                                <p className="text-xs text-slate-500 mt-0.5 max-w-sm">
+                                    Every report earns 10 ECO automatically. Connect a wallet once from your{" "}
+                                    <a href="/citizen/profile" className="text-amber-600 underline font-semibold">Profile page</a>,
+                                    then claim here anytime — no MetaMask needed to submit a report.
+                                </p>
+                            </div>
+                        </div>
+                        {pendingCount > 0 && (
+                            <Button
+                                onClick={handleClaimRewards}
+                                disabled={claiming}
+                                className="bg-amber-500 hover:bg-amber-600 text-white font-bold shrink-0 w-full sm:w-auto"
+                            >
+                                {claiming
+                                    ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Claiming…</span>
+                                    : "Claim Rewards"
+                                }
+                            </Button>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Live Exchange Rate Card */}
                 <div className="bg-gradient-to-r from-green-600 to-emerald-700 p-6 rounded-2xl text-white shadow-md flex flex-col sm:flex-row justify-between items-center gap-4">

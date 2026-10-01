@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef } from "react"
 import { supabase } from "@/lib/supabase"
-import { getContractSigner } from "@/lib/web3"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { ClipboardList, Zap, CheckCircle2, AlertTriangle, Loader2, MapPin, Image as ImageIcon } from "lucide-react"
@@ -133,8 +132,10 @@ export default function ReportIssuePage() {
       setStatus("⏳ Saving your report to the database…")
     }
 
-    // 2. Insert into Supabase with user_id and image_url
-    const { data: newReport, error: dbError } = await supabase.from("CitizenReports").insert([
+    // 2. Insert into Supabase with user_id and image_url. reward_tx stays NULL —
+    //    the 10 ECO reward is claimed later from the Rewards page, so submitting
+    //    a report never requires MetaMask or any wallet connection.
+    const { error: dbError } = await supabase.from("CitizenReports").insert([
       {
         user_id: user?.id ?? null,
         zone,
@@ -146,7 +147,7 @@ export default function ReportIssuePage() {
         image_url: uploadedImageUrl,
         status: "Pending",
       },
-    ]).select("id").single()
+    ])
 
     if (dbError) {
       console.error("Supabase error:", dbError)
@@ -156,33 +157,12 @@ export default function ReportIssuePage() {
       return
     }
 
-    // 3. Trigger server-side token reward (owner wallet signs server-side)
-    try {
-      setStatus("⏳ Report saved! Getting your wallet address to claim reward…")
-      const { signer } = await getContractSigner()
-      const citizenAddress = await signer.getAddress()
-
-      setStatus("⏳ Sending token reward to your wallet…")
-      const res = await fetch("/api/reward-citizen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ citizenAddress, reportId: newReport?.id }),
-      })
-
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Reward failed")
-
-      setStatus("🎉 Success! Report submitted & 10 ECO tokens rewarded to your wallet.")
-      setDescription("")
-      setExactAddress("")
-      setMarkerPos(defaultCenter)
-      setSubmitted(true)
-    } catch (web3Err) {
-      console.error("Reward error:", web3Err)
-      const msg = web3Err?.message ?? "Unknown error"
-      setStatus(`⚠️ Report saved, but token reward failed: ${msg}`)
-    }
-
+    setStatus("🎉 Report submitted! Your 10 ECO reward is waiting — claim it anytime from the Rewards page.")
+    setDescription("")
+    setExactAddress("")
+    setMarkerPos(defaultCenter)
+    setImageFile(null)
+    setSubmitted(true)
     setIsSubmitting(false)
     setTimeout(() => setStatus(null), 10000)
   }
@@ -207,7 +187,7 @@ export default function ReportIssuePage() {
           Report an Issue
         </h1>
         <p className="text-slate-500 mt-1">
-          Submit a municipal issue and earn <strong>10 ECO tokens</strong> upon successful verification.
+          Submit a municipal issue and earn <strong>10 ECO tokens</strong> — no wallet needed to report.
         </p>
       </div>
 
@@ -217,8 +197,8 @@ export default function ReportIssuePage() {
         <div>
           <p className="text-sm font-bold text-amber-800">Earn ECO Tokens</p>
           <p className="text-xs text-amber-700 mt-0.5">
-            Every verified report rewards you with <strong>10 ECO</strong> tokens directly to your
-            MetaMask wallet via the EcoRoute smart contract on Sepolia.
+            Every report earns you <strong>10 ECO</strong> automatically. Connect a MetaMask wallet
+            anytime from your Profile or the Rewards page to claim it — you don&apos;t need one to submit a report.
           </p>
         </div>
       </div>
@@ -230,7 +210,7 @@ export default function ReportIssuePage() {
             <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto" />
             <h2 className="text-2xl font-black text-slate-800">Report Submitted!</h2>
             <p className="text-slate-500 text-sm">
-              Your civic report has been logged and tokens have been dispatched to your wallet.
+              Your civic report has been logged and your 10 ECO reward is waiting — claim it anytime from the Rewards page.
             </p>
             <Button
               onClick={resetForm}
@@ -388,8 +368,8 @@ export default function ReportIssuePage() {
               <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 rounded-lg p-3">
                 <AlertTriangle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-slate-500">
-                  Submitting a report will prompt a MetaMask transaction. Ensure your wallet is
-                  connected to <strong>Sepolia testnet</strong> before proceeding.
+                  No wallet needed to submit. Your 10 ECO reward is saved automatically — connect
+                  MetaMask on your Profile or Rewards page whenever you want to claim it.
                 </p>
               </div>
 
@@ -404,7 +384,7 @@ export default function ReportIssuePage() {
                     Processing…
                   </span>
                 ) : (
-                  "Submit Report & Claim Tokens"
+                  "Submit Report"
                 )}
               </Button>
 
