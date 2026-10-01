@@ -8,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { ClipboardList, Zap, CheckCircle2, AlertTriangle, Loader2, MapPin, Image as ImageIcon } from "lucide-react"
 import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api"
 import { v4 as uuidv4 } from "uuid"
+import { ZONES } from "@/lib/zones"
 
-const ZONES = ["Colombo 03", "Colombo 04", "Colombo 05", "Colombo 07"]
 
 const ISSUE_TYPES = [
   "Missed Garbage Pickup",

@@ -1,5 +1,6 @@
 "use client"
 
+import { ZONES } from "@/lib/zones"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
@@ -24,15 +25,6 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react"
-
-const ZONES = [
-  "Colombo 03",
-  "Colombo 04",
-  "Colombo 05",
-  "Colombo 07",
-  "Colombo 10",
-  "Colombo 15",
-]
 
 const PICKUP_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 

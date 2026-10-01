@@ -28,15 +28,7 @@ import {
   ShieldCheck,
 } from "lucide-react"
 import EcoRouteLogo from "@/components/EcoRouteLogo"
-
-const ZONES = [
-  "Colombo 03",
-  "Colombo 04",
-  "Colombo 05",
-  "Colombo 07",
-  "Colombo 10",
-  "Colombo 15",
-]
+import { ZONES } from "@/lib/zones"
 
 const PICKUP_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
