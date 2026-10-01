@@ -51,6 +51,7 @@ export default function CitizenShell({ children }) {
   const [userAddress, setUserAddress]   = useState(null)
   const [ecoBalance, setEcoBalance]     = useState("0")
   const [walletLoading, setWalletLoading] = useState(false)
+  const [walletError, setWalletError]   = useState(null)
   const [sidebarOpen, setSidebarOpen]   = useState(false)
 
   // ── Auth guard ─────────────────────────────────────────────────────────────
@@ -131,6 +132,7 @@ export default function CitizenShell({ children }) {
 
   const connectWallet = async () => {
     setWalletLoading(true)
+    setWalletError(null)
     try {
       const { signer } = await getContractSigner()
       const address = await signer.getAddress()
@@ -139,7 +141,8 @@ export default function CitizenShell({ children }) {
       setEcoBalance(balance)
     } catch (err) {
       console.error("Wallet connection failed:", err)
-      alert("Failed to connect wallet. Please ensure MetaMask is unlocked.")
+      setWalletError("Failed to connect wallet. Please ensure MetaMask is unlocked.")
+      setTimeout(() => setWalletError(null), 6000)
     } finally {
       setWalletLoading(false)
     }
@@ -185,6 +188,16 @@ export default function CitizenShell({ children }) {
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans overflow-hidden">
+      {/* Wallet error toast */}
+      {walletError && (
+        <div
+          role="status"
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[90%] px-4 py-3 rounded-xl text-sm font-semibold shadow-lg border bg-red-50 border-red-200 text-red-700"
+        >
+          {walletError}
+        </div>
+      )}
+
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div

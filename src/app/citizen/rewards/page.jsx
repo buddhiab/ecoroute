@@ -45,8 +45,13 @@ export default function TokenStore() {
             setEcoBalance(balance)
         } catch (error) {
             console.error("Wallet connection failed:", error)
-            alert("Failed to connect wallet.")
+            showBriefError("Failed to connect wallet. Make sure MetaMask is unlocked.")
         }
+    }
+
+    const showBriefError = (text) => {
+        setStatusMessage(`❌ ${text}`)
+        setTimeout(() => setStatusMessage(null), 6000)
     }
 
     // Calculate LKR amount dynamically
@@ -55,7 +60,7 @@ export default function TokenStore() {
     const handleBankWithdrawal = async (e) => {
         e.preventDefault()
         if (!userAddress) {
-            alert("Please connect your MetaMask wallet first.")
+            showBriefError("Please connect your MetaMask wallet first.")
             return
         }
 
@@ -63,12 +68,12 @@ export default function TokenStore() {
         const currentBal = Number(ecoBalance)
 
         if (tokensNum <= 0) {
-            alert("Please enter a valid amount of ECO tokens to convert.")
+            showBriefError("Please enter a valid amount of ECO tokens to convert.")
             return
         }
 
         if (tokensNum > currentBal) {
-            alert(`Insufficient balance! You want to cash out ${tokensNum} ECO, but you only have ${ecoBalance} ECO.`)
+            showBriefError(`Insufficient balance — you want to cash out ${tokensNum} ECO, but you only have ${ecoBalance} ECO.`)
             return
         }
 

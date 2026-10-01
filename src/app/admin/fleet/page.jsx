@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AlertCircle, CheckCircle2, Trash2, X, AlertTriangle, MapPin, Truck, XCircle, Loader2, Pencil } from "lucide-react";
-
-const COLOMBO_ZONES = [
-  "Colombo 01", "Colombo 02", "Colombo 03", "Colombo 04", "Colombo 05",
-  "Colombo 06", "Colombo 07", "Colombo 08", "Colombo 09", "Colombo 10",
-  "Colombo 11", "Colombo 12", "Colombo 13", "Colombo 14", "Colombo 15"
-];
+import { ZONES as COLOMBO_ZONES } from "@/lib/zones";
 
 export default function FleetMonitor() {
   const router = useRouter();
