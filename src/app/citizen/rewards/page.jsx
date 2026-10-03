@@ -7,10 +7,7 @@ import { saveWalletAddress } from "@/lib/profileWallet"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Gift, Loader2 } from "lucide-react"
-
-// Conversion rate: 1 ECO = N LKR. Configurable via NEXT_PUBLIC_ECO_TO_LKR_RATE
-// (e.g. in .env.local / Vercel env vars) — falls back to 10 if unset or invalid.
-const EXCHANGE_RATE = Number(process.env.NEXT_PUBLIC_ECO_TO_LKR_RATE) || 10
+import { EXCHANGE_RATE } from "@/lib/rewardsConfig"
 
 export default function TokenStore() {
     const [userAddress, setUserAddress] = useState(null)
@@ -40,7 +37,7 @@ export default function TokenStore() {
                 setUserAddress(address)
                 const balance = await getEcoBalance(address)
                 setEcoBalance(balance)
-                saveWalletAddress(address).catch(() => {})
+                saveWalletAddress(address).catch((err) => console.error("[rewards] wallet save failed:", err))
             } catch (err) {
                 // Wallet not connected
             }
@@ -56,13 +53,19 @@ export default function TokenStore() {
                 .from("CitizenReports")
                 .select("*", { count: "exact", head: true })
                 .eq("user_id", user.id)
-                .is("reward_tx", null)
+                // Unclaimed, or claimed but still confirming on-chain ("pending…")
+                .or("reward_tx.is.null,reward_tx.like.pending*")
             setPendingCount(count ?? 0)
         }
         loadPendingCount()
     }, [])
 
     const handleClaimRewards = async () => {
+        if (!userAddress) {
+            setStatusMessage("❌ No wallet connected. Connect your wallet from your Profile page first.")
+            setTimeout(() => setStatusMessage(null), 6000)
+            return
+        }
         setClaiming(true)
         setStatusMessage("⏳ Claiming your pending rewards…")
         try {
@@ -70,13 +73,18 @@ export default function TokenStore() {
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || "Claim failed")
 
+            const stillWaiting = (data.remaining ?? 0) + (data.inFlight ?? 0)
             if (data.claimed > 0) {
-                setStatusMessage(`🎉 Claimed ${data.totalEco} ECO from ${data.claimed} report${data.claimed === 1 ? "" : "s"}!`)
-                setPendingCount((prev) => Math.max(0, (prev ?? 0) - data.claimed))
-                if (userAddress) {
-                    const updatedBalance = await getEcoBalance(userAddress)
-                    setEcoBalance(updatedBalance)
-                }
+                let msg = `🎉 Claimed ${data.totalEco} ECO from ${data.claimed} report${data.claimed === 1 ? "" : "s"}!`
+                if (data.remaining > 0) msg += ` ${data.remaining} more waiting — click Claim Rewards again.`
+                if (data.inFlight > 0) msg += ` ${data.inFlight} still confirming on-chain.`
+                setStatusMessage(msg)
+                setPendingCount(stillWaiting)
+                const updatedBalance = await getEcoBalance(userAddress)
+                setEcoBalance(updatedBalance)
+            } else if (data.inFlight > 0) {
+                setStatusMessage(`⏳ ${data.inFlight} reward${data.inFlight === 1 ? " is" : "s are"} still confirming on-chain — check again in a minute.`)
+                setPendingCount(stillWaiting)
             } else {
                 setStatusMessage(data.message ? `ℹ️ ${data.message}` : `⚠️ Nothing claimed${data.lastError ? `: ${data.lastError}` : "."}`)
             }
@@ -99,7 +107,11 @@ export default function TokenStore() {
             await saveWalletAddress(address)
         } catch (error) {
             console.error("Wallet connection failed:", error)
-            showBriefError("Failed to connect wallet. Make sure MetaMask is unlocked.")
+            if (error?.message?.includes("wallet") || error?.code) {
+                showBriefError(`Failed to save wallet address: ${error.message}`)
+            } else {
+                showBriefError("Failed to connect wallet. Make sure MetaMask is unlocked.")
+            }
         }
     }
 
@@ -140,27 +152,22 @@ export default function TokenStore() {
             setStatusMessage("⏳ Please confirm the transaction in MetaMask...")
             const receipt = await burnEcoTokens(tokensNum)
 
-            // 2. Log the payout request, tied to the burn transaction hash so the
-            //    admin can verify it against Sepolia before any real LKR is sent.
-            setStatusMessage("⏳ Burn confirmed. Logging your payout request...")
-            const { error } = await supabase.from("BankPayouts").insert([
-                {
-                    wallet_address: userAddress,
-                    eco_burned: tokensNum,
-                    lkr_amount: calculatedLKR,
-                    account_name: accountName,
-                    account_number: accountNumber,
-                    bank_name: bankName,
-                    status: "Pending Transfer",
-                    burn_tx: receipt.hash,
-                }
-            ])
+            // 2. Record the payout request via the server, which re-verifies the burn
+            //    on-chain (right wallet, right treasury, amount read from the chain)
+            //    before creating the row — the browser can't write payouts directly.
+            setStatusMessage("⏳ Burn confirmed. Verifying and logging your payout request...")
+            const res = await fetch("/api/record-payout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ burnTx: receipt.hash, accountName, accountNumber, bankName }),
+            })
+            const recorded = await res.json().catch(() => ({}))
 
-            if (error) {
+            if (!res.ok) {
                 // Tokens are already burned — this must not be silently lost.
                 setStatusMessage(
-                    `⚠️ Your ${tokensNum} ECO was burned (tx: ${receipt.hash}) but we could not log the payout request. ` +
-                    `Please contact support with this transaction ID.`
+                    `⚠️ Your ${tokensNum} ECO was burned (tx: ${receipt.hash}) but the payout request wasn't recorded: ` +
+                    `${recorded.error || "unknown error"}. Please contact support with this transaction ID.`
                 )
                 const updatedBalance = await getEcoBalance(userAddress)
                 setEcoBalance(updatedBalance)
@@ -168,7 +175,7 @@ export default function TokenStore() {
                 return
             }
 
-            setStatusMessage(`🎉 Success! ${tokensNum} ECO converted to LKR ${calculatedLKR.toLocaleString()}. Direct bank transfer initiated.`);
+            setStatusMessage(`🎉 Success! ${recorded.ecoBurned} ECO converted to LKR ${Number(recorded.lkrAmount).toLocaleString()}. Direct bank transfer initiated.`);
 
             // Clear form
             setTokensToCash("")

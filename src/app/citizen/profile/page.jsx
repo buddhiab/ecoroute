@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { getContractSigner } from "@/lib/web3"
+import { saveWalletAddress } from "@/lib/profileWallet"
 import {
   User,
   Mail,
@@ -140,20 +141,23 @@ export default function CitizenProfilePage() {
     setSaving(true)
     setStatus({ message: "Saving changes…", type: "info" })
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name:     editName.trim(),
-          phone:         editPhone.trim() || null,
+      // Saved server-side: browser writes to `profiles` are blocked by RLS (the
+      // update would silently change nothing yet look successful).
+      const res = await fetch("/api/update-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name:     editName,
+          phone:         editPhone,
           zone:          editZone,
           preferred_day: editDay,
-          house_number:  editHouse.trim() || null,
-        })
-        .eq("email", session.user.email)
-        .eq("role", "citizen")
-
-      if (error) throw error
+          house_number:  editHouse,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to save changes.")
+      }
 
       // Update localStorage
       if (typeof window !== "undefined") {
@@ -188,14 +192,7 @@ export default function CitizenProfilePage() {
       const { signer } = await getContractSigner()
       const address = await signer.getAddress()
 
-      const { data: { session } } = await supabase.auth.getSession()
-      const { error } = await supabase
-        .from("profiles")
-        .update({ wallet_address: address })
-        .eq("email", session.user.email)
-        .eq("role", "citizen")
-
-      if (error) throw error
+      await saveWalletAddress(address)
 
       setProfile((p) => ({ ...p, wallet_address: address }))
       setWalletStatus({ message: "Wallet connected and saved!", type: "success" })
