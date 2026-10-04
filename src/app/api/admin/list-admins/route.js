@@ -20,14 +20,14 @@ export async function GET() {
     // Filter to only admin and super_admin roles
     const admins = data.users
       .filter((u) => {
-        const role = u.user_metadata?.role
+        const role = u.app_metadata?.role
         return role === "admin" || role === "super_admin"
       })
       .map((u) => ({
         id: u.id,
         email: u.email,
         full_name: u.user_metadata?.full_name ?? null,
-        role: u.user_metadata?.role,
+        role: u.app_metadata?.role,
         created_at: u.created_at,
       }))
 

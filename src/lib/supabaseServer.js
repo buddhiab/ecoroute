@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { sessionCookieName } from "./portal";
+import { isAdmin, isSuperAdmin } from "./roles";
 
 // Returns the signed-in user (validated server-side) for the given portal
 // ("admin" | "driver" | "citizen") from the request cookies, or null.
@@ -42,8 +43,7 @@ export async function getSessionUser(portal) {
 // Returns the user only if they are an admin/super_admin (or exactly super_admin).
 export async function requireAdmin({ superOnly = false } = {}) {
   const user = await getSessionUser("admin");
-  const role = user?.user_metadata?.role;
-  const ok = superOnly ? role === "super_admin" : role === "admin" || role === "super_admin";
+  const ok = superOnly ? isSuperAdmin(user) : isAdmin(user);
   return ok ? user : null;
 }
 

@@ -135,18 +135,24 @@ export default function AdminRegisterPage() {
     setStep(2)
   }
 
-  // ── Step 2 — verify access code ──
-  // The access code is read from NEXT_PUBLIC_ADMIN_ACCESS_CODE env var.
-  // In production, replace with a server-side verification call.
-  const handleStep2 = (e) => {
+  // ── Step 2 — verify access code (checked on the server, never in the browser) ──
+  const handleStep2 = async (e) => {
     e.preventDefault()
-    const expectedCode = process.env.NEXT_PUBLIC_ADMIN_ACCESS_CODE || "ECO-ADMIN-2024"
-    if (accessCode.trim() !== expectedCode) {
-      return setStatus({ message: "Invalid access code. Contact your system administrator.", type: "error" })
+    setStatus({ message: "Checking access code…", type: "info" })
+    try {
+      const res = await fetch("/api/register-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verifyOnly: true, accessCode }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) return setStatus({ message: data.error || "Could not verify the access code.", type: "error" })
+      setCodeVerified(true)
+      setStatus(null)
+      setStep(3)
+    } catch {
+      setStatus({ message: "Could not reach the server. Check your connection and try again.", type: "error" })
     }
-    setCodeVerified(true)
-    setStatus(null)
-    setStep(3)
   }
 
   // ── Wallet connect ──
@@ -170,43 +176,22 @@ export default function AdminRegisterPage() {
     setIsSubmitting(true)
     setStatus({ message: "Creating admin account…", type: "info" })
     try {
-      // 1. Create Supabase Auth account with admin role in metadata
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: { role: "admin", full_name: fullName.trim() },
-        },
+      // The server re-checks the access code, creates the account with the admin role
+      // in app_metadata (browser can't grant it) and writes the profile rows.
+      const res = await fetch("/api/register-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessCode,
+          email: email.trim(),
+          password,
+          fullName: fullName.trim(),
+          department: department.trim(),
+          walletAddress,
+        }),
       })
-      if (authError) {
-        if (authError.message.includes("already registered"))
-          throw new Error("An account with this email already exists. Try logging in instead.")
-        throw authError
-      }
-
-      // 2. Insert profile record
-      const { error: pErr } = await supabase.from("profiles").insert([
-        {
-          contact: email.trim(),
-          contact_type: "email",
-          role: "admin",
-          full_name: fullName.trim(),
-          department: department.trim() || null,
-          wallet_address: walletAddress,
-        },
-      ])
-      if (pErr && pErr.code !== "42P01") {
-        if (pErr.code === "23505") throw new Error("This wallet or email is already registered.")
-        throw new Error(`Profile error: ${pErr.message}`)
-      }
-
-      // 3. Insert into admin_profiles (optional table)
-      const { error: aErr } = await supabase.from("admin_profiles").insert([
-        { wallet_address: walletAddress, full_name: fullName.trim(), department: department.trim() || null },
-      ])
-      if (aErr && aErr.code !== "42P01") {
-        throw new Error(`Admin profile error: ${aErr.message}`)
-      }
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(result.error || "Registration failed. Please try again.")
 
       setStatus({ message: "Admin account created! Redirecting to login…", type: "success" })
       setTimeout(() => router.push("/login/admin"), 1500)

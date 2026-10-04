@@ -21,7 +21,7 @@ export async function DELETE(request) {
     const { data: { user }, error: fetchError } = await supabaseAdmin.auth.admin.getUserById(userId)
     if (fetchError) throw fetchError
 
-    const targetRole = user?.user_metadata?.role
+    const targetRole = user?.app_metadata?.role
     if (targetRole !== "admin" && targetRole !== "super_admin") {
       return NextResponse.json({ error: "Target is not an admin account." }, { status: 400 })
     }

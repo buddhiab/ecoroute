@@ -114,7 +114,7 @@ export default function AdminManagementPage() {
     }
   }
 
-  const isSuperAdmin = currentUser?.user_metadata?.role === "super_admin"
+  const isSuperAdmin = currentUser?.app_metadata?.role === "super_admin"
 
   // Guard: only super_admins can see this page
   if (!isSuperAdmin && currentUser !== null) {

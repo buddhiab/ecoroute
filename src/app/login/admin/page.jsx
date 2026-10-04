@@ -80,8 +80,8 @@ export default function AdminLoginPage() {
 
       if (authError) throw authError
 
-      // 2. Check that this user has role='admin' or role='super_admin' in their metadata
-      const role = authData.user?.user_metadata?.role
+      // 2. Admin roles live in app_metadata (server-controlled), never user_metadata
+      const role = authData.user?.app_metadata?.role
       if (role !== "admin" && role !== "super_admin") {
         await supabase.auth.signOut()
         throw new Error(

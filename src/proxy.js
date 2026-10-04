@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { portalFromPath, sessionCookieName } from "@/lib/portal";
+import { getRole, isAdmin } from "@/lib/roles";
 
 // Routes that are fully public — no auth needed
 const PUBLIC_PREFIXES = [
@@ -68,9 +69,9 @@ export async function proxy(request) {
     if (!user) {
       return NextResponse.redirect(new URL("/login/admin", request.url));
     }
-    // Must have role=admin or role=super_admin in user metadata
-    const role = user.user_metadata?.role;
-    if (role !== "admin" && role !== "super_admin") {
+    // Admin roles come from app_metadata only — user_metadata is user-editable
+    const role = getRole(user);
+    if (!isAdmin(user)) {
       // Signed in but wrong role — redirect to their own portal
       const redirectTo =
         role === "driver" ? "/driver" : role === "citizen" ? "/citizen" : "/";
@@ -85,7 +86,7 @@ export async function proxy(request) {
       return NextResponse.redirect(new URL("/login/driver", request.url));
     }
     // Must have role=driver in user metadata
-    const role = user.user_metadata?.role;
+    const role = getRole(user);
     if (role !== "driver") {
       return NextResponse.redirect(new URL("/", request.url));
     }
@@ -97,7 +98,7 @@ export async function proxy(request) {
     if (!user) {
       return NextResponse.redirect(new URL("/login/citizen", request.url));
     }
-    const role = user.user_metadata?.role;
+    const role = getRole(user);
     if (role !== "citizen") {
       return NextResponse.redirect(new URL("/", request.url));
     }

@@ -42,7 +42,7 @@ export default function AdminLayout({ children }) {
   // Fetch current user role from the local session — no network round-trip.
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUserRole(session?.user?.user_metadata?.role ?? null)
+      setUserRole(session?.user?.app_metadata?.role ?? null)
     })
   }, [])
 
