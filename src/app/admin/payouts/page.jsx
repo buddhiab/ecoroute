@@ -19,11 +19,36 @@ const STATUS_STYLES = {
   "Pending Transfer": "bg-amber-100 text-amber-800 border-amber-200",
   Completed: "bg-green-100 text-green-800 border-green-200",
   Processing: "bg-blue-100 text-blue-800 border-blue-200",
+  Rejected: "bg-red-100 text-red-800 border-red-200",
 }
 
 export default function PayoutsPage() {
   const [payouts, setPayouts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState(null)
+  const [confirming, setConfirming] = useState(null) // { id, status }
+  const [notice, setNotice] = useState(null) // { text, type }
+
+  const updateStatus = async (id, status) => {
+    setConfirming(null)
+    setBusyId(id)
+    setNotice(null)
+    try {
+      const res = await fetch("/api/admin/payout-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Could not update the payout.")
+      setPayouts((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)))
+      setNotice({ text: `Payout #${id} marked ${status}.`, type: "success" })
+    } catch (err) {
+      setNotice({ text: err.message, type: "error" })
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   const fetchPayouts = useCallback(async () => {
     setLoading(true)
@@ -52,10 +77,9 @@ export default function PayoutsPage() {
   }, [fetchPayouts])
 
   // Aggregates
-  const totalLKR = payouts.reduce((acc, p) => acc + Number(p.lkr_amount || 0), 0)
   const totalECO = payouts.reduce((acc, p) => acc + Number(p.eco_burned || 0), 0)
   const pendingCount = payouts.filter((p) => (p.status ?? "Pending Transfer") === "Pending Transfer").length
-  const completedCount = payouts.filter((p) => p.status === "Completed").length
+  const paidLKR = payouts.filter((p) => p.status === "Completed").reduce((acc, p) => acc + Number(p.lkr_amount || 0), 0)
 
   return (
     <div className="p-6 md:p-8 space-y-7 max-w-6xl mx-auto w-full">
@@ -78,12 +102,18 @@ export default function PayoutsPage() {
         </Button>
       </div>
 
+      {notice && (
+        <div className={`p-3.5 rounded-xl text-sm font-semibold border ${notice.type === "error" ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+          {notice.text}
+        </div>
+      )}
+
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total Requests", value: payouts.length, icon: Landmark, color: "text-slate-700", bg: "bg-slate-50 border-slate-200" },
           { label: "Pending Transfer", value: pendingCount, icon: Clock, color: "text-amber-700", bg: "bg-amber-50 border-amber-200" },
-          { label: "Total LKR Out", value: `Rs. ${totalLKR.toLocaleString()}`, icon: DollarSign, color: "text-green-700", bg: "bg-green-50 border-green-200" },
+          { label: "LKR Paid Out", value: `Rs. ${paidLKR.toLocaleString()}`, icon: DollarSign, color: "text-green-700", bg: "bg-green-50 border-green-200" },
           { label: "Total ECO Burned", value: `${totalECO} ECO`, icon: Coins, color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className={`${bg} border rounded-2xl p-5 flex items-center gap-3`}>
@@ -119,6 +149,7 @@ export default function PayoutsPage() {
                     "ECO Burned",
                     "Burn Tx",
                     "Status",
+                    "Action",
                   ].map((h) => (
                     <th key={h} className="px-4 py-4 font-bold whitespace-nowrap">{h}</th>
                   ))}
@@ -128,7 +159,7 @@ export default function PayoutsPage() {
                 {loading ? (
                   [...Array(4)].map((_, i) => (
                     <tr key={i}>
-                      {[...Array(9)].map((__, j) => (
+                      {[...Array(10)].map((__, j) => (
                         <td key={j} className="px-4 py-4">
                           <div className="h-4 bg-slate-100 rounded animate-pulse" />
                         </td>
@@ -137,7 +168,7 @@ export default function PayoutsPage() {
                   ))
                 ) : payouts.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-10 text-slate-400 font-medium">
+                    <td colSpan={10} className="text-center py-10 text-slate-400 font-medium">
                       No payout requests recorded yet.
                     </td>
                   </tr>
@@ -200,6 +231,44 @@ export default function PayoutsPage() {
                           >
                             {status}
                           </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {status === "Completed" || status === "Rejected" ? (
+                            <span className="text-xs text-slate-400">—</span>
+                          ) : busyId === payout.id ? (
+                            <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying burn…
+                            </span>
+                          ) : confirming?.id === payout.id ? (
+                            <span className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => updateStatus(payout.id, confirming.status)}
+                                className={`text-xs font-bold px-2.5 py-1.5 rounded-lg text-white ${confirming.status === "Rejected" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
+                              >
+                                Confirm {confirming.status === "Completed" ? "paid" : confirming.status.toLowerCase()}
+                              </button>
+                              <button onClick={() => setConfirming(null)} className="text-xs font-semibold px-2 py-1.5 text-slate-500 hover:text-slate-700">
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => setConfirming({ id: payout.id, status: "Completed" })}
+                                disabled={!payout.burn_tx}
+                                title={payout.burn_tx ? "Mark as paid (re-checks the burn on-chain first)" : "No burn transaction recorded — can't be paid"}
+                                className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                Mark paid
+                              </button>
+                              <button
+                                onClick={() => setConfirming({ id: payout.id, status: "Rejected" })}
+                                className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
+                              >
+                                Reject
+                              </button>
+                            </span>
+                          )}
                         </td>
                       </tr>
                     )

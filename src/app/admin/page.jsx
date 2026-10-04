@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -69,8 +69,10 @@ function KPICard({ label, value, accent, icon: Icon, loading, sub }) {
 }
 
 // ── Bar chart row ─────────────────────────────────────────────────────────────
-function BarRow({ label, count, total, colorClass }) {
+function BarRow({ label, count, total, max, colorClass }) {
+  // label = share of ALL items; bar length = relative to the biggest row
   const pct = total > 0 ? Math.round((count / total) * 100) : 0
+  const barPct = max > 0 ? Math.round((count / max) * 100) : 0
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between items-center">
@@ -83,7 +85,7 @@ function BarRow({ label, count, total, colorClass }) {
       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${colorClass}`}
-          style={{ width: `${pct}%` }}
+          style={{ width: `${barPct}%` }}
         />
       </div>
     </div>
@@ -146,13 +148,24 @@ export default function AdminDashboard() {
     setLoading(false)
   }, [])
 
+  // Only the two tables this page shows, and debounced. Listening to the whole schema
+  // re-downloaded every report on each driver GPS ping (driver_profiles updates constantly).
+  const debounceRef = useRef(null)
   useEffect(() => {
     fetchData()
+    const refresh = () => {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(fetchData, 1500)
+    }
     const channel = supabase
       .channel("admin-dashboard-realtime")
-      .on("postgres_changes", { event: "*", schema: "public" }, fetchData)
+      .on("postgres_changes", { event: "*", schema: "public", table: "CitizenReports" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "HCILogs" }, refresh)
       .subscribe()
-    return () => supabase.removeChannel(channel)
+    return () => {
+      clearTimeout(debounceRef.current)
+      supabase.removeChannel(channel)
+    }
   }, [fetchData])
 
   // Computed KPIs
@@ -278,7 +291,8 @@ export default function AdminDashboard() {
                   key={type}
                   label={type}
                   count={count}
-                  total={maxIssue}
+                  total={totalReports}
+                  max={maxIssue}
                   colorClass={ISSUE_COLORS[i % ISSUE_COLORS.length]}
                 />
               ))
@@ -318,7 +332,8 @@ export default function AdminDashboard() {
                   key={zone}
                   label={zone}
                   count={count}
-                  total={maxZone}
+                  total={totalReports}
+                  max={maxZone}
                   colorClass={ZONE_COLORS[i % ZONE_COLORS.length]}
                 />
               ))
