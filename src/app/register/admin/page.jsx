@@ -23,6 +23,7 @@ import {
   EyeOff,
 } from "lucide-react"
 import EcoRouteLogo from "@/components/EcoRouteLogo"
+import { validateEmail, validatePassword, validatePersonName, firstError } from "@/lib/validation"
 
 // ── Shared UI helpers ─────────────────────────────────────────────────────────
 
@@ -122,15 +123,8 @@ export default function AdminRegisterPage() {
   // ── Step 1 ──
   const handleStep1 = (e) => {
     e.preventDefault()
-    if (!email.trim() || !fullName.trim()) {
-      return setStatus({ message: "Full name and email are required.", type: "error" })
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return setStatus({ message: "Please enter a valid email address.", type: "error" })
-    }
-    if (password.length < 8) {
-      return setStatus({ message: "Password must be at least 8 characters.", type: "error" })
-    }
+    const problem = firstError(validatePersonName(fullName, "Full name"), validateEmail(email), validatePassword(password))
+    if (problem) return setStatus({ message: problem, type: "error" })
     setStatus(null)
     setStep(2)
   }
@@ -250,7 +244,7 @@ export default function AdminRegisterPage() {
                     <TextInput icon={Building2} type="text" placeholder="e.g. Waste Management Division"
                       value={department} onChange={(e) => setDepartment(e.target.value)} />
                   </Field>
-                  <Field label="Password" hint="Minimum 8 characters — used to log in to the Command Center">
+                  <Field label="Password" hint="At least 8 characters, with a letter and a number — used to log in to the Command Center">
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <input

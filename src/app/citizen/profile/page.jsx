@@ -1,6 +1,7 @@
 "use client"
 
 import { ZONES } from "@/lib/zones"
+import { validatePersonName, validatePhone, validateText, firstError, LIMITS } from "@/lib/validation"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
@@ -132,12 +133,12 @@ export default function CitizenProfilePage() {
   }, [router])
 
   const handleSave = async () => {
-    if (!editName.trim()) {
-      return setStatus({ message: "Full name cannot be empty.", type: "error" })
-    }
-    if (editPhone.trim() && !/^\+?[\d\s\-]{7,15}$/.test(editPhone.trim())) {
-      return setStatus({ message: "Please enter a valid phone number.", type: "error" })
-    }
+    const problem = firstError(
+      validatePersonName(editName, "Full name"),
+      validatePhone(editPhone),
+      validateText(editHouse, { label: "House number", max: LIMITS.houseNumber }),
+    )
+    if (problem) return setStatus({ message: problem, type: "error" })
     setSaving(true)
     setStatus({ message: "Saving changes…", type: "info" })
     try {

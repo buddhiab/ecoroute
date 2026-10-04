@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { sendPushNotification } from "@/lib/webpush";
 import { requireAdmin } from "@/lib/supabaseServer";
+import { validateText, LIMITS } from "@/lib/validation";
 
 // Admin client — uses service role key (server-only, never exposed to browser)
 const supabaseAdmin = createClient(
@@ -21,11 +22,16 @@ export async function POST(request) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { reportId, driverName } = await request.json();
-
-    if (!reportId) {
-      return Response.json({ error: "reportId is required" }, { status: 400 });
+    const body = await request.json().catch(() => ({}));
+    const reportId = Number(body.reportId);
+    if (!Number.isInteger(reportId) || reportId <= 0) {
+      return Response.json({ error: "A valid reportId is required" }, { status: 400 });
     }
+    const nameCheck = validateText(body.driverName ?? "", { label: "Driver name", max: LIMITS.name });
+    if (!nameCheck.ok) {
+      return Response.json({ error: nameCheck.message }, { status: 400 });
+    }
+    const driverName = nameCheck.value;
 
     // Fetch all push subscriptions for this report using admin client
     const { data: subs, error } = await supabaseAdmin

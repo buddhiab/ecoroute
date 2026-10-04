@@ -21,10 +21,22 @@ export async function POST(request) {
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    const { reportId, subscription } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const { reportId, subscription } = body;
 
-    if (!reportId || !subscription?.endpoint) {
-      return Response.json({ error: "reportId and subscription are required" }, { status: 400 });
+    const id = Number(reportId);
+    if (!Number.isInteger(id) || id <= 0) {
+      return Response.json({ error: "A valid reportId is required" }, { status: 400 });
+    }
+    const endpoint = subscription?.endpoint;
+    const p256dh = subscription?.keys?.p256dh;
+    const auth = subscription?.keys?.auth;
+    if (
+      typeof endpoint !== "string" || !endpoint.startsWith("https://") || endpoint.length > 2048 ||
+      typeof p256dh !== "string" || !p256dh || p256dh.length > 256 ||
+      typeof auth !== "string" || !auth || auth.length > 128
+    ) {
+      return Response.json({ error: "A valid push subscription is required" }, { status: 400 });
     }
 
     // Write subscription using admin client (bypasses RLS for this trusted operation)
@@ -32,10 +44,10 @@ export async function POST(request) {
       .from("push_subscriptions")
       .upsert(
         {
-          report_id: reportId,
-          endpoint: subscription.endpoint,
-          p256dh: subscription.keys.p256dh,
-          auth: subscription.keys.auth,
+          report_id: id,
+          endpoint,
+          p256dh,
+          auth,
         },
         { onConflict: "endpoint" }
       );

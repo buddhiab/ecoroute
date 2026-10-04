@@ -140,13 +140,10 @@ export default function PayoutsPage() {
               <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
                 <tr>
                   {[
-                    "Req ID",
-                    "Account Holder",
+                    "Req",
+                    "Account",
                     "Wallet",
-                    "Bank",
-                    "Account No.",
-                    "LKR Amount",
-                    "ECO Burned",
+                    "Amount",
                     "Burn Tx",
                     "Status",
                     "Action",
@@ -159,7 +156,7 @@ export default function PayoutsPage() {
                 {loading ? (
                   [...Array(4)].map((_, i) => (
                     <tr key={i}>
-                      {[...Array(10)].map((__, j) => (
+                      {[...Array(7)].map((__, j) => (
                         <td key={j} className="px-4 py-4">
                           <div className="h-4 bg-slate-100 rounded animate-pulse" />
                         </td>
@@ -168,7 +165,7 @@ export default function PayoutsPage() {
                   ))
                 ) : payouts.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-10 text-slate-400 font-medium">
+                    <td colSpan={7} className="text-center py-10 text-slate-400 font-medium">
                       No payout requests recorded yet.
                     </td>
                   </tr>
@@ -180,8 +177,11 @@ export default function PayoutsPage() {
                         <td className="px-4 py-4 font-bold text-slate-500 font-mono text-xs">
                           #{payout.id}
                         </td>
-                        <td className="px-4 py-4 font-semibold text-slate-800 whitespace-nowrap">
-                          {payout.account_name}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <p className="font-semibold text-slate-800">{payout.account_name}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {payout.bank_name} · <span className="font-mono">{payout.account_number}</span>
+                          </p>
                         </td>
                         <td className="px-4 py-4">
                           <span className="flex items-center gap-1.5">
@@ -193,18 +193,12 @@ export default function PayoutsPage() {
                             </span>
                           </span>
                         </td>
-                        <td className="px-4 py-4 font-medium text-slate-700 whitespace-nowrap">
-                          {payout.bank_name}
-                        </td>
-                        <td className="px-4 py-4 font-mono text-slate-600">{payout.account_number}</td>
-                        <td className="px-4 py-4 font-black text-green-700 whitespace-nowrap">
-                          Rs. {Number(payout.lkr_amount || 0).toLocaleString()} LKR
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className="flex items-center gap-1 font-semibold text-blue-600">
-                            <Coins className="w-3.5 h-3.5 shrink-0" />
-                            {payout.eco_burned} ECO
-                          </span>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <p className="font-black text-green-700">Rs. {Number(payout.lkr_amount || 0).toLocaleString()}</p>
+                          <p className="flex items-center gap-1 text-xs font-semibold text-blue-600 mt-0.5">
+                            <Coins className="w-3 h-3 shrink-0" />
+                            {payout.eco_burned} ECO burned
+                          </p>
                         </td>
                         <td className="px-4 py-4">
                           {payout.burn_tx ? (

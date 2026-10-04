@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { timingSafeEqual } from "node:crypto"
 import { ethers } from "ethers"
 import { getAdminClient } from "@/lib/supabaseServer"
+import { validateEmail, validatePassword, validatePersonName, validateText, firstError, LIMITS } from "@/lib/validation"
 
 // Admin sign-up, done entirely server-side. The admin role is written to
 // app_metadata with the service-role key — the browser can never grant it, and the
@@ -31,29 +32,25 @@ export async function POST(request) {
   }
   if (body.verifyOnly) return NextResponse.json({ ok: true })
 
-  const email = typeof body.email === "string" ? body.email.trim() : ""
-  const password = typeof body.password === "string" ? body.password : ""
-  const fullName = typeof body.fullName === "string" ? body.fullName.trim() : ""
-  const department = typeof body.department === "string" ? body.department.trim() : ""
-  const walletAddress = body.walletAddress
+  const emailCheck = validateEmail(body.email)
+  const passwordCheck = validatePassword(body.password)
+  const nameCheck = validatePersonName(body.fullName, "Full name")
+  const deptCheck = validateText(body.department, { label: "Department", max: LIMITS.department })
+  const problem = firstError(emailCheck, passwordCheck, nameCheck, deptCheck)
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 })
-  }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 })
-  }
-  if (!fullName || fullName.length > 100) {
-    return NextResponse.json({ error: "Full name is required." }, { status: 400 })
-  }
+  const walletAddress = body.walletAddress
   if (!walletAddress || !ethers.isAddress(walletAddress)) {
     return NextResponse.json({ error: "Please connect your MetaMask wallet first." }, { status: 400 })
   }
+  const email = emailCheck.value
+  const fullName = nameCheck.value
+  const department = deptCheck.value
 
   const admin = getAdminClient()
   const { data, error } = await admin.auth.admin.createUser({
     email,
-    password,
+    password: passwordCheck.value,
     email_confirm: true, // the access code is the gate
     user_metadata: { full_name: fullName },
     app_metadata: { role: "admin" },

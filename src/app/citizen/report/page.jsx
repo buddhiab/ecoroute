@@ -8,6 +8,7 @@ import { ClipboardList, Zap, CheckCircle2, AlertTriangle, Loader2, MapPin, Image
 import { GoogleMap, Marker, useLoadScript } from "@react-google-maps/api"
 import { v4 as uuidv4 } from "uuid"
 import { ZONES } from "@/lib/zones"
+import { validateText, validateCoordinates, validateImageFile, firstError, LIMITS } from "@/lib/validation"
 
 
 const ISSUE_TYPES = [
@@ -92,8 +93,14 @@ export default function ReportIssuePage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!exactAddress.trim()) {
-      setStatus("❌ Please provide the exact address.")
+    const problem = firstError(
+      validateText(exactAddress, { label: "The address", min: LIMITS.address.min, max: LIMITS.address.max }),
+      validateText(description, { label: "Additional details", max: LIMITS.description, multiline: true }),
+      validateCoordinates(markerPos.lat, markerPos.lng),
+      validateImageFile(imageFile),
+    )
+    if (problem) {
+      setStatus(`❌ ${problem}`)
       setTimeout(() => setStatus(null), 6000)
       return
     }
@@ -108,7 +115,8 @@ export default function ReportIssuePage() {
     let uploadedImageUrl = null
     if (imageFile) {
       setStatus("⏳ Uploading photo…")
-      const fileExt = imageFile.name.split(".").pop()
+      // Extension comes from the validated MIME type, never from the user-supplied file name
+      const fileExt = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[imageFile.type]
       const fileName = `${uuidv4()}.${fileExt}`
       const filePath = `${user?.id || "anon"}/${fileName}`
 
@@ -140,8 +148,8 @@ export default function ReportIssuePage() {
         user_id: user?.id ?? null,
         zone,
         issue_type: issueType,
-        description,
-        exact_address: exactAddress,
+        description: description.trim(),
+        exact_address: exactAddress.trim(),
         latitude: markerPos.lat,
         longitude: markerPos.lng,
         image_url: uploadedImageUrl,
@@ -258,6 +266,7 @@ export default function ReportIssuePage() {
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     id="address-input"
+                    maxLength={LIMITS.address.max}
                     type="text"
                     value={exactAddress}
                     onChange={(e) => setExactAddress(e.target.value)}
@@ -337,8 +346,19 @@ export default function ReportIssuePage() {
                   <input
                     id="photo-upload"
                     type="file"
-                    accept="image/*"
-                    onChange={(e) => setImageFile(e.target.files[0])}
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files[0] ?? null
+                      const check = validateImageFile(file)
+                      if (!check.ok) {
+                        e.target.value = ""
+                        setImageFile(null)
+                        setStatus(`❌ ${check.message}`)
+                        setTimeout(() => setStatus(null), 6000)
+                        return
+                      }
+                      setImageFile(file)
+                    }}
                     className="block w-full text-sm text-slate-500
                       file:mr-4 file:py-2.5 file:px-4
                       file:rounded-lg file:border-0
@@ -357,6 +377,7 @@ export default function ReportIssuePage() {
                 </label>
                 <textarea
                   id="description-input"
+                  maxLength={LIMITS.description}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Provide any additional details or instructions for the driver…"

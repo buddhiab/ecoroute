@@ -1,6 +1,7 @@
 ﻿import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/supabaseServer"
+import { isUuid } from "@/lib/validation"
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -12,9 +13,9 @@ export async function DELETE(request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   try {
-    const { userId } = await request.json()
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 })
+    const { userId } = await request.json().catch(() => ({}))
+    if (!isUuid(userId)) {
+      return NextResponse.json({ error: "A valid userId is required" }, { status: 400 })
     }
 
     // Safety check: make sure target is not a super_admin

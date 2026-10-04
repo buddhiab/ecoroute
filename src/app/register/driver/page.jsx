@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import EcoRouteLogo from "@/components/EcoRouteLogo"
 import { ZONES } from "@/lib/zones"
+import { validateEmail, validatePassword, validatePersonName, validatePhone, validateLicenseNumber, firstError } from "@/lib/validation"
 
 // ── UI Helpers ────────────────────────────────────────────────────────────────
 
@@ -284,30 +285,21 @@ export default function DriverRegisterPage() {
 
   const handleStep1 = (e) => {
     e.preventDefault()
-    if (contactType === "email") {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-        return setStatus({ message: "Please enter a valid email address.", type: "error" })
-      }
-    } else {
-      if (!/^\+?[\d\s\-]{7,15}$/.test(phone.trim())) {
-        return setStatus({ message: "Please enter a valid phone number (include country code).", type: "error" })
-      }
-      if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-        return setStatus({ message: "An email address is also required for your account login.", type: "error" })
-      }
-    }
-    if (password.length < 8) {
-      return setStatus({ message: "Password must be at least 8 characters.", type: "error" })
-    }
+    // Email is always needed for the account login; a phone number is required only if chosen as the contact method.
+    const problem = firstError(
+      validateEmail(email),
+      validatePhone(phone, { required: contactType === "phone" }),
+      validatePassword(password),
+    )
+    if (problem) return setStatus({ message: problem, type: "error" })
     setStatus(null)
     setStep(2)
   }
 
   const handleStep2 = (e) => {
     e.preventDefault()
-    if (!fullName.trim() || !licenseNumber.trim()) {
-      return setStatus({ message: "Full name and license number are required.", type: "error" })
-    }
+    const problem = firstError(validatePersonName(fullName, "Full name"), validateLicenseNumber(licenseNumber))
+    if (problem) return setStatus({ message: problem, type: "error" })
     if (!selectedVehicle) {
       return setStatus({ message: "Please select an available vehicle.", type: "error" })
     }
@@ -460,7 +452,7 @@ export default function DriverRegisterPage() {
                     </Field>
                   )}
 
-                  <Field label="Password" hint="Minimum 8 characters">
+                  <Field label="Password" hint="At least 8 characters, with a letter and a number">
                     <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} />
                   </Field>
 

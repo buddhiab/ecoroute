@@ -3,6 +3,7 @@ import { ethers } from "ethers"
 import { getSessionUser, getAdminClient } from "@/lib/supabaseServer"
 import { verifyBurnTx } from "@/lib/verifyBurn"
 import { EXCHANGE_RATE } from "@/lib/rewardsConfig"
+import { validatePersonName, validateBankAccountNumber, firstError } from "@/lib/validation"
 
 const BANKS = [
   "Commercial Bank",
@@ -25,19 +26,19 @@ export async function POST(request) {
 
   const body = await request.json().catch(() => ({}))
   const burnTx = typeof body.burnTx === "string" ? body.burnTx.trim().toLowerCase() : ""
-  const accountName = typeof body.accountName === "string" ? body.accountName.trim() : ""
-  const accountNumber = typeof body.accountNumber === "string" ? body.accountNumber.replace(/[\s-]/g, "") : ""
+  const nameCheck = validatePersonName(body.accountName, "Account holder name")
+  const numberCheck = validateBankAccountNumber(body.accountNumber)
   const bankName = typeof body.bankName === "string" ? body.bankName : ""
 
   if (!/^0x[0-9a-f]{64}$/.test(burnTx)) {
     return NextResponse.json({ error: "Invalid transaction hash." }, { status: 400 })
   }
-  if (accountName.length < 2 || accountName.length > 100) {
-    return NextResponse.json({ error: "Enter the account holder's name." }, { status: 400 })
+  const problem = firstError(nameCheck, numberCheck)
+  if (problem) {
+    return NextResponse.json({ error: problem }, { status: 400 })
   }
-  if (!/^\d{6,20}$/.test(accountNumber)) {
-    return NextResponse.json({ error: "Account number must be 6–20 digits." }, { status: 400 })
-  }
+  const accountName = nameCheck.value
+  const accountNumber = numberCheck.value
   if (!BANKS.includes(bankName)) {
     return NextResponse.json({ error: "Unsupported bank." }, { status: 400 })
   }

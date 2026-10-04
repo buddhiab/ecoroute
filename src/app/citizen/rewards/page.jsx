@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Gift, Loader2 } from "lucide-react"
 import { EXCHANGE_RATE } from "@/lib/rewardsConfig"
+import { validateEcoAmount, validatePersonName, validateBankAccountNumber, firstError } from "@/lib/validation"
 
 export default function TokenStore() {
     const [userAddress, setUserAddress] = useState(null)
@@ -130,18 +131,17 @@ export default function TokenStore() {
             return
         }
 
-        const tokensNum = Number(tokensToCash)
-        const currentBal = Number(ecoBalance)
-
-        if (tokensNum <= 0) {
-            showBriefError("Please enter a valid amount of ECO tokens to convert.")
+        const amountCheck = validateEcoAmount(tokensToCash, { balance: ecoBalance })
+        const problem = firstError(
+            amountCheck,
+            validatePersonName(accountName, "Account holder name"),
+            validateBankAccountNumber(accountNumber),
+        )
+        if (problem) {
+            showBriefError(problem)
             return
         }
-
-        if (tokensNum > currentBal) {
-            showBriefError(`Insufficient balance — you want to cash out ${tokensNum} ECO, but you only have ${ecoBalance} ECO.`)
-            return
-        }
+        const tokensNum = amountCheck.value
 
         setIsSubmitting(true)
 

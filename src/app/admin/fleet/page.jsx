@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { AlertCircle, CheckCircle2, Trash2, X, AlertTriangle, MapPin, Truck, XCircle, Loader2, Pencil } from "lucide-react";
 import { ZONES as COLOMBO_ZONES } from "@/lib/zones";
+import { validateVehiclePlate } from "@/lib/validation";
 
 export default function FleetMonitor() {
   const router = useRouter();
@@ -194,8 +195,12 @@ export default function FleetMonitor() {
   };
 
   const submitNewVehicle = async () => {
-    if (!newVehicleInput || newVehicleInput.trim() === "") return;
-    const formattedReg = newVehicleInput.trim().toUpperCase();
+    const plate = validateVehiclePlate(newVehicleInput);
+    if (!plate.ok) {
+      showToast(plate.message, "error");
+      return;
+    }
+    const formattedReg = plate.value;
     const { error } = await supabase
       .from("vehicles")
       .insert([{ registration_number: formattedReg }]);
@@ -267,7 +272,7 @@ export default function FleetMonitor() {
   const inUseCount = drivers.filter(d => d.vehicle_number && d.vehicle_number !== "Unassigned").length;
 
   return (
-    <div className="w-full relative">
+    <div className="w-full relative p-6 md:p-8 max-w-6xl mx-auto">
       
       {/* ── CUSTOM TOAST NOTIFICATION ── */}
       {toast && (

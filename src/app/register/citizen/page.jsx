@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import EcoRouteLogo from "@/components/EcoRouteLogo"
 import { ZONES } from "@/lib/zones"
+import { validateEmail, validatePassword, validatePersonName, validatePhone, validateText, firstError, LIMITS } from "@/lib/validation"
 
 const PICKUP_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -156,12 +157,8 @@ export default function CitizenRegisterPage() {
   // ── Step 1: Credentials ──
   const handleStep1 = (e) => {
     e.preventDefault()
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return setStatus({ message: "Please enter a valid email address.", type: "error" })
-    }
-    if (password.length < 8) {
-      return setStatus({ message: "Password must be at least 8 characters.", type: "error" })
-    }
+    const problem = firstError(validateEmail(email), validatePassword(password))
+    if (problem) return setStatus({ message: problem, type: "error" })
     setStatus(null)
     setStep(2)
   }
@@ -169,12 +166,12 @@ export default function CitizenRegisterPage() {
   // ── Step 2: Personal Info ──
   const handleStep2 = (e) => {
     e.preventDefault()
-    if (!fullName.trim()) {
-      return setStatus({ message: "Full name is required.", type: "error" })
-    }
-    if (phone.trim() && !/^\+?[\d\s\-]{7,15}$/.test(phone.trim())) {
-      return setStatus({ message: "Please enter a valid phone number.", type: "error" })
-    }
+    const problem = firstError(
+      validatePersonName(fullName, "Full name"),
+      validatePhone(phone),
+      validateText(houseNumber, { label: "House number", max: LIMITS.houseNumber }),
+    )
+    if (problem) return setStatus({ message: problem, type: "error" })
     if (!agreeTerms) {
       return setStatus({ message: "You must agree to the Terms & Privacy Policy to continue.", type: "error" })
     }
@@ -314,7 +311,7 @@ export default function CitizenRegisterPage() {
                       value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </Field>
 
-                  <Field label="Password" hint="Minimum 8 characters" required>
+                  <Field label="Password" hint="At least 8 characters, with a letter and a number" required>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                       <input
